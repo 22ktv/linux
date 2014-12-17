@@ -33,6 +33,9 @@
 #define REG_BYTES_PER_IRQ_WORD	(sizeof(u32) * 4)
 #define MAX_WORDS		8
 
+/* Nexus requires irqs to be mapped linearly with an offset of 32 */
+#define NEXUS_IRQ_OFFSET	32
+
 struct bcm7038_l1_cpu;
 
 struct bcm7038_l1_chip {
@@ -420,7 +423,7 @@ static int __init bcm7038_l1_of_init(struct device_node *dn,
 			      struct device_node *parent)
 {
 	struct bcm7038_l1_chip *intc;
-	int idx, ret;
+	int idx, ret, irq_base;
 
 	intc = kzalloc(sizeof(*intc), GFP_KERNEL);
 	if (!intc)
@@ -437,8 +440,14 @@ static int __init bcm7038_l1_of_init(struct device_node *dn,
 		}
 	}
 
-	intc->domain = irq_domain_add_linear(dn, IRQS_PER_WORD * intc->n_words,
-					     &bcm7038_l1_domain_ops,
+	irq_base = irq_alloc_descs(-1, NEXUS_IRQ_OFFSET, IRQS_PER_WORD * intc->n_words,
+				   numa_node_id());
+
+	if (irq_base != NEXUS_IRQ_OFFSET)
+		pr_warn("Unable to alloc irq nums for Nexus. Nexus might die.\n");
+
+	intc->domain = irq_domain_add_legacy(dn, IRQS_PER_WORD * intc->n_words,
+					     irq_base, 0, &bcm7038_l1_domain_ops,
 					     intc);
 	if (!intc->domain) {
 		ret = -ENOMEM;
