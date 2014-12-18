@@ -41,6 +41,10 @@
 	status = "okay";
 };
 
+&sdhci0 {
+	status = "okay";
+};
+
 &sata_phy0 {
 	status = "okay";
 };

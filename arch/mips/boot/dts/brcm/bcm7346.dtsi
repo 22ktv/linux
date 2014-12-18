@@ -247,6 +247,16 @@
 			status = "disabled";
 		};
 
+		sdhci0: sdhci@413500 {
+			compatible = "brcm,brcmstb-sdhci";
+			reg = <0x413500 0x100>, <0x413600 0x100>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <85>;
+			bus-width = <4>;
+			max-frequency = <25000000>;
+			status = "disabled";
+		};
+
 		sata_phy0: phy@1800000 {
 			compatible = "brcm,brcmstb-phy";
 			reg = <0x180000 0x1000>;

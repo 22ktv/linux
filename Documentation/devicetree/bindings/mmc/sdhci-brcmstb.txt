@@ -1,0 +1,20 @@
+* Broadcom STB SDHCI controller (sdhci-brcmstb)
+
+Required properties:
+- compatible: "brcm,brcmstb-sdhci"
+- reg: Base address and length of the register in the following order:
+	- Host controller register map (required)
+	- SD configuration register map (required)
+- interrupts: The interrupt number to the cpu. The interrupt specifier format
+  depends on the interrupt controller.
+
+Example:
+	sdhci0: sdhci@410000 {
+		compatible = "brcm,brcmstb-sdhci";
+		reg = <0x410000 0x100>, <0x410100 0x100>;
+		interrupt-parent = <&periph_intc>;
+		interrupts = <82>;
+		bus-width = <4>;
+		max-frequency = <50000000>;
+		status = "disabled";
+	};
