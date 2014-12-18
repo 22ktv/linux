@@ -45,6 +45,10 @@
 	status = "okay";
 };
 
+&nand0 {
+	status = "okay";
+};
+
 &sdhci0 {
 	status = "okay";
 };

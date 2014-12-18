@@ -1,0 +1,25 @@
+* Broadcom STB NAND Controller (brcmstb-nand)
+
+Required properties:
+- compatible: "brcm,brcmstb-nand"
+- reg: Base address and length of the register in the following order:
+	- Host controller register map (required)
+	- L1 interrupt register map (required)
+- interrupts: The interrupt number to the cpu. The interrupt specifier format
+  depends on the interrupt controller.
+- nand-bus-width: see nand.txt
+- nand-ecc-mode: see nand.txt
+- nand-cs: specifies the chip select line
+
+Example:
+	nand0: nand@412800 {
+		compatible = "brcm,brcmstb-nand";
+		reg = <0x412800 0x400>, <0x411000 0x18>;
+		interrupt-parent = <&periph_intc>;
+		interrupts = <30>;
+		nand-ecc-mode = "hw";
+		nand-bus-width = <8>;
+		nand-on-flash-bbt;
+		nand-cs = <0>;
+		status = "disabled";
+	};

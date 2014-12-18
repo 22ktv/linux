@@ -208,6 +208,17 @@
 			};
 		};
 
+		nand0: nand@412800 {
+			compatible = "brcm,brcmstb-nand";
+			reg = <0x412800 0x400>, <0x411000 0x18>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <30>;
+			nand-ecc-mode = "hw";
+			nand-bus-width = <8>;
+			nand-on-flash-bbt;
+			status = "disabled";
+		};
+
 		sdhci0: sdhci@410000 {
 			compatible = "brcm,brcmstb-sdhci";
 			reg = <0x410000 0x100>, <0x410100 0x100>;
