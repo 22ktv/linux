@@ -277,4 +277,11 @@ config PHY_STIH41X_USB
 	  Enable this to support the USB transceiver that is part of
 	  STMicroelectronics STiH41x SoC series.
 
+config PHY_BRCMSTB_SATA
+	tristate "Broadcom STB board SATA PHY driver"
+	depends on BMIPS_GENERIC
+	select GENERIC_PHY
+	help
+	  Support for SATA PHY on Broadcom STB board.
+
 endmenu
