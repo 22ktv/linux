@@ -1,0 +1,33 @@
+* Broadcom STB AHCI SATA PHY (phy-brcmstb-sata)
+
+Required properties:
+- compatible: "brcm,brcmstb-sata-phy"
+- reg: address and length of the register
+- address-cells: should be 1
+- size-cells: should be 0
+- phy-cells: from the generic PHY bindings, must be 1
+- ssc-enable: enabling SSC on port
+
+Sub-nodes:
+Each PHY should be represented as a sub-node.
+
+Sub-nodes required properties:
+- reg: the PHY number
+
+Example:
+	sata_phy0: phy@1800000 {
+		compatible = "brcm,brcmstb-phy";
+		reg = <0x180000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#phy-cells = <1>;
+		status = "disabled";
+
+		sata-phy@0 {
+			reg = <0>;
+		};
+
+		sata-phy@1 {
+			reg = <1>;
+		};
+	};

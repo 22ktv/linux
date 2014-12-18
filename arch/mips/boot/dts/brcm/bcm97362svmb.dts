@@ -40,3 +40,19 @@
 &ohci0 {
 	status = "okay";
 };
+
+&sata_phy0 {
+	status = "okay";
+};
+
+&ahci0 {
+	status = "okay";
+};
+
+&sata0 {
+	status = "okay";
+};
+
+&sata1 {
+	status = "okay";
+};

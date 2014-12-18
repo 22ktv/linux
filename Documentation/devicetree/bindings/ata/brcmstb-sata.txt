@@ -1,0 +1,31 @@
+* Broadcom STB AHCI SATA Controller (brcmstb-ahci)
+
+Required properties:
+- compatible: compatible list, must contain "generic-ahci"
+- reg: specifies the base physical address and size of the registers
+- interrupts: The interrupt number to the cpu. The interrupt specifier format
+  depends on the interrupt controller.
+- phys: Must contain exactly one entry as specified in phy-bindings.txt
+- phy-names: Must be "sata-phy"
+
+Example:
+	ahci0: ahci@181000 {
+		compatible = "brcm,brcmstb-ahci", "generic-ahci";
+		reg = <0x181000 0x10000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&periph_intc>;
+		interrupts = <86>;
+
+		sata0: sata-port@0 {
+			reg = <0>;
+			phys = <&sata_phy0 0>;
+			status = "disabled";
+		};
+
+		sata1: sata-port@1 {
+			reg = <1>;
+			phys = <&sata_phy0 1>;
+			status = "disabled";
+		};
+	};
