@@ -328,6 +328,18 @@ config MMC_SDHCI_ST
 	  If you have a controller with this interface, say Y or M here.
 	  If unsure, say N.
 
+config MMC_SDHCI_BRCMSTB
+	tristate "SDHCI support on Broadcom STB board"
+	depends on ARCH_BRCMSTB
+	depends on MMC_SDHCI_PLTFM
+	select MMC_SDHCI_IO_ACCESSORS
+	help
+	  This selects the Broadcon STB board SD/MMC controller.
+	  If you have a Broadcom STB board with SD or MMC devices,
+	  say Y or M here.
+
+	  If unsure, say N.
+
 config MMC_OMAP
 	tristate "TI OMAP Multimedia Card Interface support"
 	depends on ARCH_OMAP
