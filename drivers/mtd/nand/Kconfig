@@ -524,4 +524,10 @@ config MTD_NAND_SUNXI
 	help
 	  Enables support for NAND Flash chips on Allwinner SoCs.
 
+config MTD_NAND_BRCMSTB
+	tristate "Support for NAND on Broadcom STB board"
+	depends on MIPS
+	help
+	  Enables support for NAND flash chips on wired onto Broadcon STB board.
+
 endif # MTD_NAND
