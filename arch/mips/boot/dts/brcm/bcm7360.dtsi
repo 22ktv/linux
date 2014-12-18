@@ -184,6 +184,24 @@
 			status = "disabled";
 		};
 
+		spi0: spi@413000 {
+			compatible = "brcm,brcmstb-spi";
+			reg = <0x413000 0x388>, <0x411d00 0x18>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <31>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			m25p80@0 {
+				compatible = "m25p80";
+				spi-max-frequency = <50000000>;
+				reg = <0>;
+				spi-cpha;
+				spi-cpol;
+			};
+		};
+
 		sdhci0: sdhci@410000 {
 			compatible = "brcm,brcmstb-sdhci";
 			reg = <0x410000 0x100>, <0x410100 0x100>;

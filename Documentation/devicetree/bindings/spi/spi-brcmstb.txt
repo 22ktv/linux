@@ -1,0 +1,44 @@
+* Broadcom STB SPI Controller (spi-brcmstb)
+
+Required properties:
+- compatible: "brcm,brcmstb-spi"
+- reg: Base address and length of the register in the following order:
+	- Host controller register map (required)
+	- L1 interrupt register map (required)
+- interrupts: The interrupt number to the cpu. The interrupt specifier format
+  depends on the interrupt controller.
+
+Required Board Specific Properties:
+- #address-cells: should be 1.
+- #size-cells: should be 0.
+
+Optional Board Specific Properties:
+- num-cs: Specifies the number of chip select lines supported. If
+  not specified, the default number of chip select lines is set to 1.
+
+SPI Controller specific data in SPI slave nodes:
+- The spi slave nodes should provide the following information which is required
+  by the spi controller.
+
+Aliases:
+- All the SPI controller nodes should be represented in the aliases node using
+  the following format 'spi{n}' where n is a unique number for the alias.
+
+Example:
+	spi0: spi@413000 {
+		compatible = "brcm,brcmstb-spi";
+		reg = <0x413000 0x388>, <0x411d00 0x18>;
+		interrupt-parent = <&periph_intc>;
+		interrupts = <31>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+
+		m25p80@0 {
+			compatible = "m25p80";
+			spi-max-frequency = <50000000>;
+			reg = <0>;
+			spi-cpha;
+			spi-cpol;
+		};
+	};

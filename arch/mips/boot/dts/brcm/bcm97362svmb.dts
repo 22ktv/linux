@@ -41,6 +41,10 @@
 	status = "okay";
 };
 
+&spi0 {
+	status = "okay";
+};
+
 &sdhci0 {
 	status = "okay";
 };
