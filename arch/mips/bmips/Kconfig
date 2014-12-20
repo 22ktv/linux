@@ -56,3 +56,8 @@ config DT_BCM97425SVMB
 	select BUILTIN_DTB
 
 endchoice
+
+config OF_CFE
+	bool "OF support for non-DT based CFE bootloader"
+	depends on BUILTIN_DTB
+	select FW_CFE
