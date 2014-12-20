@@ -29,6 +29,12 @@
 #include <asm/time.h>
 #include <asm/traps.h>
 
+#ifdef CONFIG_OF_CFE
+extern void __init of_cfe_early_param(void);
+#else
+static inline void __init of_cfe_early_param(void) {}
+#endif
+
 #define RELO_NORMAL_VEC		BIT(18)
 
 #define REG_BCM6328_OTP		((void __iomem *)CKSEG1ADDR(0x1000062c))
@@ -204,6 +210,8 @@ void __init plat_mem_setup(void)
 			q->quirk_fn();
 		}
 	}
+
+	of_cfe_early_param();
 }
 
 void __init device_tree_init(void)
