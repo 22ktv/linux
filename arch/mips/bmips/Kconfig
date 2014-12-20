@@ -67,4 +67,9 @@ config DT_BCM97435SVMB
 
 endchoice
 
+config OF_CFE
+	bool "OF support for non-DT based CFE bootloader"
+	depends on BUILTIN_DTB
+	select FW_CFE
+
 endif
