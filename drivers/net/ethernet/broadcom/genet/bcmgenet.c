@@ -1310,6 +1310,9 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
 out:
 	spin_unlock_irqrestore(&ring->lock, flags);
 
+	if (index != DESC_INDEX)
+		skb_orphan(skb);
+
 	return ret;
 }
 
