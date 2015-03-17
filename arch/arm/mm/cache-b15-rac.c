@@ -16,6 +16,7 @@
 #include <linux/notifier.h>
 #include <linux/cpu.h>
 #include <linux/syscore_ops.h>
+#include <linux/reboot.h>
 
 #include <asm/cacheflush.h>
 #include <asm/hardware/cache-b15-rac.h>
@@ -155,6 +156,27 @@ static void b15_rac_enable(void)
 	b15_rac_disable_and_flush();
 	__b15_rac_enable(enable);
 }
+
+static int b15_rac_reboot_notifier(struct notifier_block *nb,
+				   unsigned long action,
+				   void *data)
+{
+	/* During kexec, we are not yet migrated on the boot CPU, so we need to
+	 * make sure we are SMP safe here.
+	 */
+	if (action == SYS_RESTART) {
+		spin_lock(&rac_lock);
+		b15_rac_disable_and_flush();
+		clear_bit(RAC_ENABLED, &b15_rac_flags);
+		spin_unlock(&rac_lock);
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block b15_rac_reboot_nb = {
+	.notifier_call	= b15_rac_reboot_notifier,
+};
 
 #ifdef CONFIG_HOTPLUG_CPU
 static void b15_rac_hotplug_start(void)
@@ -297,11 +319,19 @@ static int __init b15_rac_init(void)
 		goto out;
 	}
 
+	ret = register_reboot_notifier(&b15_rac_reboot_nb);
+	if (ret) {
+		pr_err("failed to register reboot notifier\n");
+		iounmap(b15_rac_base);
+		goto out;
+	}
+
 #ifdef CONFIG_HOTPLUG_CPU
 	ret = register_cpu_notifier(&b15_rac_cpu_nb);
 	if (ret) {
 		pr_err("failed to register notifier block\n");
 		iounmap(b15_rac_base);
+		unregister_reboot_notifier(&b15_rac_reboot_nb);
 		goto out;
 	}
 #endif
