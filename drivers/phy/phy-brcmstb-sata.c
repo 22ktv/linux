@@ -40,10 +40,6 @@
  #define SATA_TOP_CTRL_2_PHY_GLOBAL_RESET		BIT(14)
 
 #define MAX_PORTS					2
-/* Register offset between PHYs in port-ctrl */
-#define SATA_TOP_CTRL_PHY_CTRL_LEN			0x8
-/* Register offset between PHYs in PCB space */
-#define SATA_MDIO_REG_SPACE_SIZE			0x1000
 
 struct brcm_sata_port {
 	int portnum;
@@ -56,8 +52,21 @@ struct brcm_sata_phy {
 	struct device *dev;
 	void __iomem *port_ctrl;
 	void __iomem *phy_base;
+	const u16 *phy_offsets;
 
 	struct brcm_sata_port phys[MAX_PORTS];
+};
+
+enum brcm_sata_phy_offset {
+	/* Register offset between PHYs in port-ctrl */
+	SATA_TOP_CTRL_PHY_CTRL_LEN,
+	/* Register offset between PHYs in PCB space */
+	SATA_MDIO_REG_SPACE_LEN,
+};
+
+static const u16 brcm_sata_phy_offset_28nm[] = {
+	[SATA_TOP_CTRL_PHY_CTRL_LEN]		= 0x8,
+	[SATA_MDIO_REG_SPACE_LEN]		= 0x1000,
 };
 
 enum sata_mdio_phy_regs_28nm {
@@ -78,14 +87,16 @@ enum sata_mdio_phy_regs_28nm {
 static inline void __iomem *sata_phy_get_port_ctrl(struct brcm_sata_port *port)
 {
 	struct brcm_sata_phy *priv = port->phy_priv;
+	u16 offset = priv->phy_offsets[SATA_TOP_CTRL_PHY_CTRL_LEN];
 
-	return priv->port_ctrl + (port->portnum * SATA_TOP_CTRL_PHY_CTRL_LEN);
+	return priv->port_ctrl + (port->portnum * offset);
 }
 static inline void __iomem *sata_phy_get_phy_base(struct brcm_sata_port *port)
 {
 	struct brcm_sata_phy *priv = port->phy_priv;
+	u16 offset = priv->phy_offsets[SATA_MDIO_REG_SPACE_LEN];
 
-	return priv->phy_base + (port->portnum * SATA_MDIO_REG_SPACE_SIZE);
+	return priv->phy_base + (port->portnum * offset);
 }
 
 static void brcm_sata_mdio_wr(void __iomem *addr, u32 bank, u32 ofs,
@@ -266,6 +277,8 @@ static int brcmstb_sata_phy_probe(struct platform_device *pdev)
 	priv->phy_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(priv->phy_base))
 		return PTR_ERR(priv->phy_base);
+
+	priv->phy_offsets = brcm_sata_phy_offset_28nm;
 
 	for_each_available_child_of_node(dn, child) {
 		unsigned int id;
