@@ -57,6 +57,11 @@ struct brcm_sata_phy {
 	struct brcm_sata_port phys[MAX_PORTS];
 };
 
+enum brcm_sata_phy_version {
+	SATA_28NM,
+	SATA_40NM
+};
+
 enum brcm_sata_phy_offset {
 	/* Register offset between PHYs in port-ctrl */
 	SATA_TOP_CTRL_PHY_CTRL_LEN,
@@ -69,7 +74,12 @@ static const u16 brcm_sata_phy_offset_28nm[] = {
 	[SATA_MDIO_REG_SPACE_LEN]		= 0x1000,
 };
 
-enum sata_mdio_phy_regs_28nm {
+static const u16 brcm_sata_phy_offset_40nm[] = {
+	[SATA_TOP_CTRL_PHY_CTRL_LEN]		= 0x4,
+	[SATA_MDIO_REG_SPACE_LEN]		= 0x10,
+};
+
+enum sata_mdio_phy_regs {
 	PLL_REG_BANK_0				= 0x50,
 	PLL_REG_BANK_0_PLLCONTROL_0		= 0x81,
 
@@ -115,7 +125,7 @@ static void brcm_sata_mdio_wr(void __iomem *addr, u32 bank, u32 ofs,
 #define FMAX_VAL_DEFAULT	0x3df
 #define FMAX_VAL_SSC		0x83
 
-static void cfg_ssc_28nm(struct brcm_sata_port *port)
+static void cfg_ssc(struct brcm_sata_port *port)
 {
 	void __iomem *base = sata_phy_get_phy_base(port);
 	struct brcm_sata_phy *priv = port->phy_priv;
@@ -198,7 +208,7 @@ static int brcmstb_sata_phy_power_on(struct phy *phy)
 	dev_info(port->phy_priv->dev, "powering on port %d\n", port->portnum);
 
 	brcm_sata_phy_enable(port);
-	cfg_ssc_28nm(port);
+	cfg_ssc(port);
 
 	return 0;
 }
@@ -214,7 +224,7 @@ static int brcmstb_sata_phy_power_off(struct phy *phy)
 	return 0;
 }
 
-static struct phy_ops phy_ops_28nm = {
+static struct phy_ops phy_ops = {
 	.power_on	= brcmstb_sata_phy_power_on,
 	.power_off	= brcmstb_sata_phy_power_off,
 	.owner		= THIS_MODULE,
@@ -235,7 +245,10 @@ static struct phy *brcm_sata_phy_xlate(struct device *dev,
 }
 
 static const struct of_device_id brcmstb_sata_phy_of_match[] = {
-	{ .compatible	= "brcm,bcm7445-sata-phy" },
+	{ .compatible	= "brcm,bcm7445-sata-phy", .data = (void *)SATA_28NM },
+	{ .compatible	= "brcm,bcm7346-sata-phy", .data = (void *)SATA_40NM },
+	{ .compatible	= "brcm,bcm7360-sata-phy", .data = (void *)SATA_40NM },
+	{ .compatible	= "brcm,bcm7362-sata-phy", .data = (void *)SATA_40NM },
 	{},
 };
 MODULE_DEVICE_TABLE(of, brcmstb_sata_phy_of_match);
@@ -244,6 +257,7 @@ static int brcmstb_sata_phy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *dn = dev->of_node, *child;
+	const struct of_device_id *of_id = NULL;
 	struct brcm_sata_phy *priv;
 	struct resource *res;
 	struct phy_provider *provider;
@@ -278,7 +292,14 @@ static int brcmstb_sata_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->phy_base))
 		return PTR_ERR(priv->phy_base);
 
-	priv->phy_offsets = brcm_sata_phy_offset_28nm;
+	of_id = of_match_node(brcmstb_sata_phy_of_match, dn);
+	if (!of_id)
+		return -EINVAL;
+
+	if (((enum brcm_sata_phy_version)of_id->data) == SATA_40NM)
+		priv->phy_offsets = brcm_sata_phy_offset_40nm;
+	else
+		priv->phy_offsets = brcm_sata_phy_offset_28nm;
 
 	for_each_available_child_of_node(dn, child) {
 		unsigned int id;
@@ -302,7 +323,7 @@ static int brcmstb_sata_phy_probe(struct platform_device *pdev)
 		port = &priv->phys[id];
 		port->portnum = id;
 		port->phy_priv = priv;
-		port->phy = devm_phy_create(dev, NULL, &phy_ops_28nm);
+		port->phy = devm_phy_create(dev, NULL, &phy_ops);
 		port->ssc_en = of_property_read_bool(child, "brcm,enable-ssc");
 		if (IS_ERR(port->phy)) {
 			dev_err(dev, "failed to create PHY\n");
