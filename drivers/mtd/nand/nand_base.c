@@ -48,6 +48,7 @@
 #include <linux/leds.h>
 #include <linux/io.h>
 #include <linux/mtd/partitions.h>
+#include <linux/of_mtd.h>
 
 /* Define default oob placement schemes for large and small page devices */
 static struct nand_ecclayout nand_oob_8 = {
@@ -386,7 +387,7 @@ static int nand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 	uint8_t buf[2] = { 0, 0 };
 	int ret = 0, res, i = 0;
 
-	ops.datbuf = NULL;
+	memset(&ops, 0, sizeof(ops));
 	ops.oobbuf = buf;
 	ops.ooboffs = chip->badblockpos;
 	if (chip->options & NAND_BUSWIDTH_16) {
@@ -968,7 +969,7 @@ int nand_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 			__func__, (unsigned long long)ofs, len);
 
 	if (check_offs_len(mtd, ofs, len))
-		ret = -EINVAL;
+		return -EINVAL;
 
 	/* Align to last block address if size addresses end of the device */
 	if (ofs + len == mtd->size)
@@ -1031,7 +1032,7 @@ int nand_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 			__func__, (unsigned long long)ofs, len);
 
 	if (check_offs_len(mtd, ofs, len))
-		ret = -EINVAL;
+		return -EINVAL;
 
 	nand_get_device(mtd, FL_LOCKING);
 
@@ -1716,9 +1717,9 @@ static int nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 	int ret;
 
 	nand_get_device(mtd, FL_READING);
+	memset(&ops, 0, sizeof(ops));
 	ops.len = len;
 	ops.datbuf = buf;
-	ops.oobbuf = NULL;
 	ops.mode = MTD_OPS_PLACE_OOB;
 	ret = nand_do_read_ops(mtd, from, &ops);
 	*retlen = ops.retlen;
@@ -2508,9 +2509,9 @@ static int panic_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	/* Grab the device */
 	panic_nand_get_device(chip, mtd, FL_WRITING);
 
+	memset(&ops, 0, sizeof(ops));
 	ops.len = len;
 	ops.datbuf = (uint8_t *)buf;
-	ops.oobbuf = NULL;
 	ops.mode = MTD_OPS_PLACE_OOB;
 
 	ret = nand_do_write_ops(mtd, to, &ops);
@@ -2536,9 +2537,9 @@ static int nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 	int ret;
 
 	nand_get_device(mtd, FL_WRITING);
+	memset(&ops, 0, sizeof(ops));
 	ops.len = len;
 	ops.datbuf = (uint8_t *)buf;
-	ops.oobbuf = NULL;
 	ops.mode = MTD_OPS_PLACE_OOB;
 	ret = nand_do_write_ops(mtd, to, &ops);
 	*retlen = ops.retlen;
@@ -3779,6 +3780,39 @@ ident_done:
 	return type;
 }
 
+static int nand_dt_init(struct mtd_info *mtd, struct nand_chip *chip,
+			struct device_node *dn)
+{
+	int ecc_mode, ecc_strength, ecc_step;
+
+	if (of_get_nand_bus_width(dn) == 16)
+		chip->options |= NAND_BUSWIDTH_16;
+
+	if (of_get_nand_on_flash_bbt(dn))
+		chip->bbt_options |= NAND_BBT_USE_FLASH;
+
+	ecc_mode = of_get_nand_ecc_mode(dn);
+	ecc_strength = of_get_nand_ecc_strength(dn);
+	ecc_step = of_get_nand_ecc_step_size(dn);
+
+	if ((ecc_step >= 0 && !(ecc_strength >= 0)) ||
+	    (!(ecc_step >= 0) && ecc_strength >= 0)) {
+		pr_err("must set both strength and step size in DT\n");
+		return -EINVAL;
+	}
+
+	if (ecc_mode >= 0)
+		chip->ecc.mode = ecc_mode;
+
+	if (ecc_strength >= 0)
+		chip->ecc.strength = ecc_strength;
+
+	if (ecc_step > 0)
+		chip->ecc.size = ecc_step;
+
+	return 0;
+}
+
 /**
  * nand_scan_ident - [NAND Interface] Scan for the NAND device
  * @mtd: MTD device structure
@@ -3796,6 +3830,13 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
 	int i, nand_maf_id, nand_dev_id;
 	struct nand_chip *chip = mtd->priv;
 	struct nand_flash_dev *type;
+	int ret;
+
+	if (chip->dn) {
+		ret = nand_dt_init(mtd, chip, chip->dn);
+		if (ret)
+			return ret;
+	}
 
 	/* Set the default functions */
 	nand_set_defaults(chip, chip->options & NAND_BUSWIDTH_16);
