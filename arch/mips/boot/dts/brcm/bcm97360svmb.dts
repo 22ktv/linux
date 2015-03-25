@@ -40,3 +40,26 @@
 &ohci0 {
 	status = "okay";
 };
+
+&nand0 {
+	status = "okay";
+
+	nandcs@2 {
+		compatible = "brcm,nandcs";
+		reg = <2>;
+		nand-ecc-step-size = <512>;
+		nand-ecc-strength = <8>;
+		nand-on-flash-bbt;
+
+		#size-cells = <2>;
+		#address-cells = <2>;
+
+		flash1.rootfs0@0 {
+			reg = <0x0 0x0 0x0 0x80000000>;
+		};
+
+		flash1.rootfs1@80000000 {
+			reg = <0x0 0x80000000 0x0 0x80000000>;
+		};
+	};
+};
