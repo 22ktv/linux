@@ -40,3 +40,7 @@
 &ohci0 {
 	status = "okay";
 };
+
+&sdhci0 {
+	status = "okay";
+};
