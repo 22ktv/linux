@@ -330,7 +330,7 @@ config MMC_SDHCI_ST
 
 config MMC_SDHCI_BRCMSTB
 	tristate "SDHCI support on Broadcom STB board"
-	depends on ARCH_BRCMSTB
+	depends on ARCH_BRCMSTB || BMIPS_GENERIC
 	depends on MMC_SDHCI_PLTFM
 	select MMC_SDHCI_IO_ACCESSORS
 	help
