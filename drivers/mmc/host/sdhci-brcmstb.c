@@ -27,9 +27,70 @@
 
 #include "sdhci-pltfm.h"
 
+#define SDIO_CFG_CTRL1		0x00
+#define SDIO_CFG_CTRL2		0x04
+#define SDIO_CFG_CAP0		0x0c
+#define SDIO_CFG_CAP1		0x10
+#define SDIO_CFG_SCRATCH	0xfc
 
 static struct sdhci_pltfm_data sdhci_brcmstb_pdata = {
 };
+
+static int sdhci_brcmstb_set_cfg(struct platform_device *pdev)
+{
+	struct resource *res;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cfg");
+	if (res) {
+		void __iomem *cfg;
+		u32 reg;
+
+		cfg = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(cfg))
+			return PTR_ERR(cfg);
+
+		if (readl(cfg + SDIO_CFG_SCRATCH) & 0x1)
+			return -ENODEV;
+
+		reg = readl(cfg + SDIO_CFG_CTRL1);
+		reg &= ~0xf000;
+		writel(reg, cfg + SDIO_CFG_CTRL1);
+
+		reg = readl(cfg + SDIO_CFG_CTRL2);
+		reg &= ~0x00ff;
+		writel(reg, cfg + SDIO_CFG_CTRL2);
+
+		reg = readl(cfg + SDIO_CFG_CTRL1);
+		reg &= ~0x0400;
+		writel(reg, cfg + SDIO_CFG_CTRL1);
+
+		if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)) {
+			reg = readl(cfg + SDIO_CFG_CTRL1);
+			reg |= 0xe000;
+			writel(reg, cfg + SDIO_CFG_CTRL1);
+
+			reg = readl(cfg + SDIO_CFG_CTRL2);
+			reg |= 0x0050;
+			writel(reg, cfg + SDIO_CFG_CTRL2);
+		} else {
+			reg = readl(cfg + SDIO_CFG_CTRL1);
+			reg |= 0x3000;
+			writel(reg, cfg + SDIO_CFG_CTRL1);
+		}
+
+		reg = readl(cfg + SDIO_CFG_CAP0);
+		reg &= ~0x02000000;
+		writel(reg, cfg + SDIO_CFG_CAP0);
+
+		reg = readl(cfg + SDIO_CFG_CAP1);
+		reg |= 0x80000000;
+		writel(reg, cfg + SDIO_CFG_CAP1);
+
+		iounmap(cfg);
+	}
+
+	return 0;
+}
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -69,6 +130,9 @@ static int sdhci_brcmstb_probe(struct platform_device *pdev)
 	struct sdhci_host *host;
 	struct sdhci_pltfm_host *pltfm_host;
 	int res;
+
+	if (sdhci_brcmstb_set_cfg(pdev))
+		return -ENODEV;
 
 	res = sdhci_pltfm_register(pdev, &sdhci_brcmstb_pdata, 0);
 	if (res)
