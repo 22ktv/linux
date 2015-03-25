@@ -617,6 +617,11 @@ config SPI_NUC900
 	help
 	  SPI driver for Nuvoton NUC900 series ARM SoCs
 
+config SPI_BRCMSTB
+	tristate "Broadcom STB board SPI controller"
+	help
+	  Enable support for the SPI controller on the Broadcom STB board.
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
