@@ -89,3 +89,7 @@
 		};
 	};
 };
+
+&sdhci0 {
+	status = "okay";
+};
