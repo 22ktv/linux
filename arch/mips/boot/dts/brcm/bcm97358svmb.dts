@@ -74,18 +74,22 @@
 		compatible = "brcm,nandcs";
 		reg = <2>;
 		nand-ecc-step-size = <512>;
-		nand-ecc-strength = <8>;
+		nand-ecc-strength = <4>;
 		nand-on-flash-bbt;
 
-		#size-cells = <2>;
-		#address-cells = <2>;
+		#size-cells = <1>;
+		#address-cells = <1>;
 
-		flash1.rootfs0@0 {
-			reg = <0x0 0x0 0x0 0x80000000>;
+		kernel@0 {
+			reg = <0x0 0x800000>;
 		};
 
-		flash1.rootfs1@80000000 {
-			reg = <0x0 0x80000000 0x0 0x80000000>;
+		splash@800000 {
+			reg = <0x800000 0x400000>;
+		};
+
+		rootfs@c00000 {
+			reg = <0xc00000 0x1f200000>;
 		};
 	};
 };
