@@ -134,8 +134,8 @@ static int __init of_cfe_device_setup(void)
 			of_cfe_mtd_partition("kernel", offset, size);
 	}
 
-	if (cfe_getenv("LINUX_SPLASH_STARTAD", cfe_buff, 16) == CFE_OK &&
-	    cfe_getenv("LINUX_SPLASH_SIZE", cfe_buff+16, 16) == CFE_OK) {
+	if (cfe_getenv("SPLASH_PART_STARTAD", cfe_buff, 16) == CFE_OK &&
+	    cfe_getenv("SPLASH_PART_SIZE", cfe_buff+16, 16) == CFE_OK) {
 		if (!kstrtoul(cfe_buff, 16, &offset) &&
 		    !kstrtoul(cfe_buff+16, 16, &size))
 			of_cfe_mtd_partition("splash", offset, size);
