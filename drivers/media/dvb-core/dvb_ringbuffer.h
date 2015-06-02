@@ -39,6 +39,7 @@ struct dvb_ringbuffer {
 
 	wait_queue_head_t queue;
 	spinlock_t        lock;
+	int               do_wait;
 };
 
 #define DVB_RINGBUFFER_PKTHDRSIZE 3
