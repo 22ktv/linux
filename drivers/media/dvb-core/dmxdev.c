@@ -88,7 +88,11 @@ static ssize_t dvb_dmxdev_buffer_read(struct dvb_ringbuffer *src,
 
 		ret = wait_event_interruptible(src->queue,
 					       !dvb_ringbuffer_empty(src) ||
-					       (src->error != 0));
+					       (src->error != 0) ||
+					       (src->do_wait != 1));
+		if (src->do_wait != 1)
+			ret = -EINTR;
+
 		if (ret < 0)
 			break;
 
@@ -959,6 +963,22 @@ dvb_demux_read(struct file *file, char __user *buf, size_t count,
 	return ret;
 }
 
+static int dvb_demux_lock_filter(struct dmxdev_filter *dmxdevfilter)
+{
+	int ret;
+
+	dmxdevfilter->buffer.do_wait = 0;
+
+	if (waitqueue_active(&dmxdevfilter->buffer.queue))
+		wake_up(&dmxdevfilter->buffer.queue);
+
+	ret = mutex_lock_interruptible(&dmxdevfilter->mutex);
+
+	dmxdevfilter->buffer.do_wait = 1;
+
+	return ret;
+}
+
 static int dvb_demux_do_ioctl(struct file *file,
 			      unsigned int cmd, void *parg)
 {
@@ -972,7 +992,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 
 	switch (cmd) {
 	case DMX_START:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			mutex_unlock(&dmxdev->mutex);
 			return -ERESTARTSYS;
 		}
@@ -984,7 +1004,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_STOP:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			mutex_unlock(&dmxdev->mutex);
 			return -ERESTARTSYS;
 		}
@@ -993,7 +1013,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_SET_FILTER:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			mutex_unlock(&dmxdev->mutex);
 			return -ERESTARTSYS;
 		}
@@ -1002,7 +1022,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_SET_PES_FILTER:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			mutex_unlock(&dmxdev->mutex);
 			return -ERESTARTSYS;
 		}
@@ -1011,7 +1031,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_SET_BUFFER_SIZE:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			mutex_unlock(&dmxdev->mutex);
 			return -ERESTARTSYS;
 		}
@@ -1059,7 +1079,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_ADD_PID:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			ret = -ERESTARTSYS;
 			break;
 		}
@@ -1068,7 +1088,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_REMOVE_PID:
-		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+		if (dvb_demux_lock_filter(dmxdevfilter)) {
 			ret = -ERESTARTSYS;
 			break;
 		}
