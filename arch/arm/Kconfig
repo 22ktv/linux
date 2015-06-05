@@ -328,6 +328,8 @@ choice
 config ARCH_MULTIPLATFORM
 	bool "Allow multiple platforms to be selected"
 	depends on MMU
+	select ARCH_FLATMEM_ENABLE
+	select ARCH_SPARSEMEM_ENABLE
 	select ARM_HAS_SG_CHAIN
 	select ARM_PATCH_PHYS_VIRT
 	select AUTO_ZRELADDR
@@ -1641,6 +1643,9 @@ config OABI_COMPAT
 	  at all). If in doubt say N.
 
 config ARCH_HAS_HOLES_MEMORYMODEL
+	bool
+
+config ARCH_FLATMEM_ENABLE
 	bool
 
 config ARCH_SPARSEMEM_ENABLE
