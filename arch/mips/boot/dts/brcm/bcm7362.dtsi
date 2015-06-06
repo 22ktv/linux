@@ -189,5 +189,25 @@
 			interrupts = <66>;
 			status = "disabled";
 		};
+
+		hif_spi_intr2_intc: interrupt-controller@411d00 {
+			compatible = "brcm,l2-intc";
+			reg = <0x411d00 0x30>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <31>;
+			interrupt-names = "hif_spi";
+		};
+
+		spi0: spi@413000 {
+			compatible = "brcm,brcmstb-spi";
+			reg = <0x413000 0x388>;
+			interrupt-parent = <&hif_spi_intr2_intc>;
+			interrupts = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 	};
 };
