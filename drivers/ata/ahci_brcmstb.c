@@ -50,7 +50,8 @@
   #define SATA_TOP_CTRL_2_SW_RST_RX			BIT(2)
   #define SATA_TOP_CTRL_2_SW_RST_TX			BIT(3)
   #define SATA_TOP_CTRL_2_PHY_GLOBAL_RESET		BIT(14)
- #define SATA_TOP_CTRL_PHY_OFFS				0x8
+ #define SATA_TOP_CTRL_28NM_PHY_OFFS			0x8
+ #define SATA_TOP_CTRL_40NM_PHY_OFFS			0x4
  #define SATA_TOP_MAX_PHYS				2
 #define SATA_TOP_CTRL_SATA_TP_OUT			0x1c
 #define SATA_TOP_CTRL_CLIENT_INIT_CTRL			0x20
@@ -235,7 +236,13 @@ static int brcm_ahci_resume(struct device *dev)
 
 static const struct of_device_id ahci_of_match[] = {
 	{.compatible = "brcm,bcm7445-ahci",
-			.data = (void *)SATA_TOP_CTRL_PHY_OFFS},
+			.data = (void *)SATA_TOP_CTRL_28NM_PHY_OFFS},
+	{.compatible = "brcm,bcm7346-ahci",
+			.data = (void *)SATA_TOP_CTRL_40NM_PHY_OFFS},
+	{.compatible = "brcm,bcm7360-ahci",
+			.data = (void *)SATA_TOP_CTRL_40NM_PHY_OFFS},
+	{.compatible = "brcm,bcm7362-ahci",
+			.data = (void *)SATA_TOP_CTRL_40NM_PHY_OFFS},
 	{},
 };
 MODULE_DEVICE_TABLE(of, ahci_of_match);
