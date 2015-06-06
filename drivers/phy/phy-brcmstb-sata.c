@@ -42,6 +42,7 @@ struct brcm_sata_port {
 struct brcm_sata_phy {
 	struct device *dev;
 	void __iomem *phy_base;
+	u32 phy_offset;
 
 	struct brcm_sata_port phys[MAX_PORTS];
 };
@@ -65,7 +66,7 @@ static inline void __iomem *brcm_sata_phy_base(struct brcm_sata_port *port)
 {
 	struct brcm_sata_phy *priv = port->phy_priv;
 
-	return priv->phy_base + (port->portnum * SATA_MDIO_REG_SPACE_SIZE);
+	return priv->phy_base + (port->portnum * priv->phy_offset);
 }
 
 static void brcm_sata_mdio_wr(void __iomem *addr, u32 bank, u32 ofs,
@@ -126,7 +127,8 @@ static struct phy_ops phy_ops_28nm = {
 };
 
 static const struct of_device_id brcm_sata_phy_of_match[] = {
-	{ .compatible	= "brcm,bcm7445-sata-phy" },
+	{ .compatible	= "brcm,bcm7445-sata-phy",
+			.data = (void *)SATA_MDIO_REG_SPACE_SIZE },
 	{},
 };
 MODULE_DEVICE_TABLE(of, brcm_sata_phy_of_match);
@@ -135,6 +137,7 @@ static int brcm_sata_phy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *dn = dev->of_node, *child;
+	const struct of_device_id *of_id = NULL;
 	struct brcm_sata_phy *priv;
 	struct resource *res;
 	struct phy_provider *provider;
@@ -153,6 +156,12 @@ static int brcm_sata_phy_probe(struct platform_device *pdev)
 	priv->phy_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(priv->phy_base))
 		return PTR_ERR(priv->phy_base);
+
+	of_id = of_match_node(brcm_sata_phy_of_match, dn);
+	if (!of_id)
+		return -EINVAL;
+
+	priv->phy_offset = (u32)of_id->data;
 
 	for_each_available_child_of_node(dn, child) {
 		unsigned int id;
