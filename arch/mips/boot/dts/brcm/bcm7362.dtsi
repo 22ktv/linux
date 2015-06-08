@@ -242,7 +242,7 @@
 		};
 
 		sata: sata@181000 {
-			compatible = "brcm,brcm7362-ahci", "brcm,sata3-ahci";
+			compatible = "brcm,bcm7362-ahci", "brcm,sata3-ahci";
 			reg-names = "ahci", "top-ctrl";
 			reg = <0x181000 0xa9c>, <0x180020 0x8>;
 			interrupt-parent = <&periph_intc>;
