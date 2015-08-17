@@ -50,7 +50,8 @@
   #define SATA_TOP_CTRL_2_SW_RST_RX			BIT(2)
   #define SATA_TOP_CTRL_2_SW_RST_TX			BIT(3)
   #define SATA_TOP_CTRL_2_PHY_GLOBAL_RESET		BIT(14)
- #define SATA_TOP_CTRL_PHY_OFFS				0x8
+ #define SATA_TOP_CTRL_28NM_PHY_OFFS			0x8
+ #define SATA_TOP_CTRL_40NM_PHY_OFFS			0x4
  #define SATA_TOP_MAX_PHYS				2
 #define SATA_TOP_CTRL_SATA_TP_OUT			0x1c
 #define SATA_TOP_CTRL_CLIENT_INIT_CTRL			0x20
@@ -72,6 +73,7 @@
 struct brcm_ahci_priv {
 	struct device *dev;
 	void __iomem *top_ctrl;
+	u32 port_offset;
 	u32 port_mask;
 };
 
@@ -110,7 +112,7 @@ static inline void brcm_sata_writereg(u32 val, void __iomem *addr)
 static void brcm_sata_phy_enable(struct brcm_ahci_priv *priv, int port)
 {
 	void __iomem *phyctrl = priv->top_ctrl + SATA_TOP_CTRL_PHY_CTRL +
-				(port * SATA_TOP_CTRL_PHY_OFFS);
+				(port * priv->port_offset);
 	void __iomem *p;
 	u32 reg;
 
@@ -139,7 +141,7 @@ static void brcm_sata_phy_enable(struct brcm_ahci_priv *priv, int port)
 static void brcm_sata_phy_disable(struct brcm_ahci_priv *priv, int port)
 {
 	void __iomem *phyctrl = priv->top_ctrl + SATA_TOP_CTRL_PHY_CTRL +
-				(port * SATA_TOP_CTRL_PHY_OFFS);
+				(port * priv->port_offset);
 	void __iomem *p;
 	u32 reg;
 
@@ -232,6 +234,19 @@ static int brcm_ahci_resume(struct device *dev)
 	return ahci_platform_resume(dev);
 }
 
+static const struct of_device_id ahci_of_match[] = {
+	{.compatible = "brcm,bcm7445-ahci",
+			.data = (void *)SATA_TOP_CTRL_28NM_PHY_OFFS},
+	{.compatible = "brcm,bcm7346-ahci",
+			.data = (void *)SATA_TOP_CTRL_40NM_PHY_OFFS},
+	{.compatible = "brcm,bcm7360-ahci",
+			.data = (void *)SATA_TOP_CTRL_40NM_PHY_OFFS},
+	{.compatible = "brcm,bcm7362-ahci",
+			.data = (void *)SATA_TOP_CTRL_40NM_PHY_OFFS},
+	{},
+};
+MODULE_DEVICE_TABLE(of, ahci_of_match);
+
 static struct scsi_host_template ahci_platform_sht = {
 	AHCI_SHT(DRV_NAME),
 };
@@ -239,6 +254,7 @@ static struct scsi_host_template ahci_platform_sht = {
 static int brcm_ahci_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *of_id = NULL;
 	struct brcm_ahci_priv *priv;
 	struct ahci_host_priv *hpriv;
 	struct resource *res;
@@ -253,6 +269,12 @@ static int brcm_ahci_probe(struct platform_device *pdev)
 	priv->top_ctrl = devm_ioremap_resource(dev, res);
 	if (IS_ERR(priv->top_ctrl))
 		return PTR_ERR(priv->top_ctrl);
+
+	of_id = of_match_node(ahci_of_match, dev->of_node);
+	if (!of_id)
+		return -EINVAL;
+
+	priv->port_offset = (u32)of_id->data;
 
 	brcm_sata_init(priv);
 
@@ -296,12 +318,6 @@ static int brcm_ahci_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id ahci_of_match[] = {
-	{.compatible = "brcm,bcm7445-ahci"},
-	{},
-};
-MODULE_DEVICE_TABLE(of, ahci_of_match);
 
 static SIMPLE_DEV_PM_OPS(ahci_brcm_pm_ops, brcm_ahci_suspend, brcm_ahci_resume);
 
