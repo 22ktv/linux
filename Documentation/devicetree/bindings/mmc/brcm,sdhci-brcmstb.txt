@@ -1,0 +1,18 @@
+Broadcom STB SDHCI controller
+
+This file documents differences between the core properties described
+by mmc.txt and the properties that represent the brcmstb SDHCI controller.
+
+Required properties:
+- compatible : Should be "brcm,sdhci-brcmstb".
+- clocks : The clock feeding the SDHCI controller.
+
+Example:
+
+sdhci0: sdhci@410000 {
+	compatible = "brcm,sdhci-brcmstb";
+	reg = <0x410000 0x100>, <0x410100 0x100>;
+	reg-names = "host", "cfg";
+	interrupt-parent = <&periph_intc>;
+	interrupts = <82>;
+};
