@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/libfdt.h>
 #include <linux/smp.h>
 #include <asm/addrspace.h>
@@ -178,6 +179,46 @@ const char *get_system_type(void)
 	return "Generic BMIPS kernel";
 }
 
+/*
+ * MIPS frequency calibration
+ */
+#define TIMER_TIMER_IS		0x00
+#define TIMER_TIMER_IE0		0x04
+#define TIMER_TIMER0_CTRL	0x08
+#define TIMER_TIMER1_CTRL	0x0c
+#define TIMER_TIMER2_CTRL	0x10
+#define TIMER_TIMER3_CTRL	0x14
+
+/* Sampling period for MIPS calibration.  50 = 1/50 of a second. */
+#define SAMPLE_PERIOD		50
+
+static unsigned int __init bcm7xxx_cpu_frequency(void __iomem *timers_base)
+{
+	unsigned int freq;
+	u32 value;
+
+	__raw_writel(0, timers_base + TIMER_TIMER3_CTRL);
+	(void)__raw_readl(timers_base + TIMER_TIMER3_CTRL);
+
+	value = __raw_readl(timers_base + TIMER_TIMER_IS);
+	__raw_writel(value | BIT(3), timers_base + TIMER_TIMER_IS);
+	(void)__raw_readl(timers_base + TIMER_TIMER_IS);
+
+	__raw_writel(0xc0000000 | (27000000 / SAMPLE_PERIOD),
+		     timers_base + TIMER_TIMER0_CTRL);
+
+	write_c0_count(0);
+
+	while ((__raw_readl(timers_base + TIMER_TIMER_IS) & 1) == 0)
+		;
+
+	freq = read_c0_count();
+
+	__raw_writel(0, timers_base + TIMER_TIMER0_CTRL);
+
+	return (freq * SAMPLE_PERIOD);
+}
+
 void __init plat_time_init(void)
 {
 	struct device_node *np;
@@ -191,6 +232,18 @@ void __init plat_time_init(void)
 	of_node_put(np);
 
 	mips_hpt_frequency = freq;
+
+	np = of_find_compatible_node(NULL, NULL, "brcm,brcmstb-timers");
+	if (np) {
+		void __iomem *timer_base;
+
+		timer_base = of_iomap(np, 0);
+		if (timer_base) {
+			mips_hpt_frequency = bcm7xxx_cpu_frequency(timer_base);
+			iounmap(timer_base);
+		}
+		of_node_put(np);
+	}
 }
 
 extern const char __appended_dtb;
