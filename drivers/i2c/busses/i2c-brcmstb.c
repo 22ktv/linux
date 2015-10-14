@@ -41,7 +41,7 @@
 #define BSC_CTL_REG_INT_EN_SHIFT			6
 #define BSC_CTL_REG_DIV_CLK_MASK			0x00000080
 
-/* BSC_IIC_ENABLE r/w enable and interrupt field defintions */
+/* BSC_IIC_ENABLE r/w enable and interrupt field definitions */
 #define BSC_IIC_EN_RESTART_MASK				0x00000040
 #define BSC_IIC_EN_NOSTART_MASK				0x00000020
 #define BSC_IIC_EN_NOSTOP_MASK				0x00000010
