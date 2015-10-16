@@ -464,7 +464,7 @@ static int brcmstb_i2c_xfer(struct i2c_adapter *adapter,
 			pmsg->buf ? pmsg->buf[0] : '0', pmsg->len);
 
 		if (i < (num - 1) && (msgs[i + 1].flags & I2C_M_NOSTART))
-			brcmstb_set_i2c_start_stop(dev, ~(COND_START_STOP));
+			brcmstb_set_i2c_start_stop(dev, 0);
 		else
 			brcmstb_set_i2c_start_stop(dev,
 						   COND_RESTART | COND_NOSTOP);
@@ -485,8 +485,7 @@ static int brcmstb_i2c_xfer(struct i2c_adapter *adapter,
 			bytes_to_xfer = min(len, N_DATA_BYTES);
 
 			if (len <= N_DATA_BYTES && i == (num - 1))
-				brcmstb_set_i2c_start_stop(dev,
-							   ~(COND_START_STOP));
+				brcmstb_set_i2c_start_stop(dev, 0);
 
 			rc = brcmstb_i2c_xfer_bsc_data(dev, tmp_buf,
 						       bytes_to_xfer, pmsg);
