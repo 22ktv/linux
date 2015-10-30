@@ -41,7 +41,7 @@
 #define BSC_CTL_REG_INT_EN_SHIFT			6
 #define BSC_CTL_REG_DIV_CLK_MASK			0x00000080
 
-/* BSC_IIC_ENABLE r/w enable and interrupt field defintions */
+/* BSC_IIC_ENABLE r/w enable and interrupt field definitions */
 #define BSC_IIC_EN_RESTART_MASK				0x00000040
 #define BSC_IIC_EN_NOSTART_MASK				0x00000020
 #define BSC_IIC_EN_NOSTOP_MASK				0x00000010
@@ -305,7 +305,7 @@ static int brcmstb_send_i2c_cmd(struct brcmstb_i2c_dev *dev,
 	}
 
 	if ((CMD_RD || CMD_WR) &&
-	    bsc_readl(dev, iic_enable) & BSC_IIC_EN_NOACK_MASK) {
+	    (bsc_readl(dev, iic_enable) & BSC_IIC_EN_NOACK_MASK)) {
 		rc = -EREMOTEIO;
 		dev_dbg(dev->device, "controller received NOACK intr for %s\n",
 			cmd_string[cmd]);
@@ -330,7 +330,7 @@ static int brcmstb_i2c_xfer_bsc_data(struct brcmstb_i2c_dev *dev,
 	int no_ack = pmsg->flags & I2C_M_IGNORE_NAK;
 
 	/* see if the transaction needs to check NACK conditions */
-	if (no_ack || len <= N_DATA_BYTES) {
+	if (no_ack) {
 		cmd = (pmsg->flags & I2C_M_RD) ? CMD_RD_NOACK
 			: CMD_WR_NOACK;
 		pi2creg->ctlhi_reg |= BSC_CTLHI_REG_IGNORE_ACK_MASK;
@@ -464,7 +464,7 @@ static int brcmstb_i2c_xfer(struct i2c_adapter *adapter,
 			pmsg->buf ? pmsg->buf[0] : '0', pmsg->len);
 
 		if (i < (num - 1) && (msgs[i + 1].flags & I2C_M_NOSTART))
-			brcmstb_set_i2c_start_stop(dev, ~(COND_START_STOP));
+			brcmstb_set_i2c_start_stop(dev, 0);
 		else
 			brcmstb_set_i2c_start_stop(dev,
 						   COND_RESTART | COND_NOSTOP);
@@ -485,8 +485,7 @@ static int brcmstb_i2c_xfer(struct i2c_adapter *adapter,
 			bytes_to_xfer = min(len, N_DATA_BYTES);
 
 			if (len <= N_DATA_BYTES && i == (num - 1))
-				brcmstb_set_i2c_start_stop(dev,
-							   ~(COND_START_STOP));
+				brcmstb_set_i2c_start_stop(dev, 0);
 
 			rc = brcmstb_i2c_xfer_bsc_data(dev, tmp_buf,
 						       bytes_to_xfer, pmsg);
