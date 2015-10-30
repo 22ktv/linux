@@ -30,18 +30,22 @@
 };
 
 &bsca {
+	clock-frequency = <97500>;
 	status = "okay";
 };
 
 &bscb {
+	clock-frequency = <97500>;
 	status = "okay";
 };
 
 &bscc {
+	clock-frequency = <97500>;
 	status = "okay";
 };
 
 &bscd {
+	clock-frequency = <97500>;
 	status = "okay";
 };
 
