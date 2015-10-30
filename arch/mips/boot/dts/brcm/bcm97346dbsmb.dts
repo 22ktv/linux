@@ -127,3 +127,12 @@
 		};
 	};
 };
+
+&sata {
+	status = "okay";
+};
+
+&sata_phy {
+	status = "okay";
+>>>>>>> brcmstb-sata-v4
+};

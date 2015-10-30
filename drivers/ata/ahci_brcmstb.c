@@ -52,8 +52,6 @@
   #define SATA_TOP_CTRL_2_PHY_GLOBAL_RESET		BIT(14)
  #define SATA_TOP_CTRL_PHY_OFFS				0x8
  #define SATA_TOP_MAX_PHYS				2
-#define SATA_TOP_CTRL_SATA_TP_OUT			0x1c
-#define SATA_TOP_CTRL_CLIENT_INIT_CTRL			0x20
 
 /* On big-endian MIPS, buses are reversed to big endian, so switch them back */
 #if defined(CONFIG_MIPS) && defined(__BIG_ENDIAN)
@@ -69,10 +67,16 @@
 	(DATA_ENDIAN << DMADESC_ENDIAN_SHIFT) |		\
 	(MMIO_ENDIAN << MMIO_ENDIAN_SHIFT))
 
+enum brcm_ahci_quirks {
+	BRCM_AHCI_QUIRK_NONCQ		= BIT(0),
+	BRCM_AHCI_QUIRK_SKIP_PHY_ENABLE	= BIT(1),
+};
+
 struct brcm_ahci_priv {
 	struct device *dev;
 	void __iomem *top_ctrl;
 	u32 port_mask;
+	u32 quirks;
 };
 
 static const struct ata_port_info ahci_brcm_port_info = {
@@ -114,6 +118,9 @@ static void brcm_sata_phy_enable(struct brcm_ahci_priv *priv, int port)
 	void __iomem *p;
 	u32 reg;
 
+	if (priv->quirks & BRCM_AHCI_QUIRK_SKIP_PHY_ENABLE)
+		return;
+
 	/* clear PHY_DEFAULT_POWER_STATE */
 	p = phyctrl + SATA_TOP_CTRL_PHY_CTRL_1;
 	reg = brcm_sata_readreg(p);
@@ -142,6 +149,9 @@ static void brcm_sata_phy_disable(struct brcm_ahci_priv *priv, int port)
 				(port * SATA_TOP_CTRL_PHY_OFFS);
 	void __iomem *p;
 	u32 reg;
+
+	if (priv->quirks & BRCM_AHCI_QUIRK_SKIP_PHY_ENABLE)
+		return;
 
 	/* power-off the PHY digital logic */
 	p = phyctrl + SATA_TOP_CTRL_PHY_CTRL_2;
@@ -202,6 +212,42 @@ static u32 brcm_ahci_get_portmask(struct platform_device *pdev,
 	return impl;
 }
 
+static void brcm_sata_quirks(struct platform_device *pdev,
+			     struct brcm_ahci_priv *priv)
+{
+	if (priv->quirks & BRCM_AHCI_QUIRK_NONCQ) {
+		void __iomem *ctrl = priv->top_ctrl + SATA_TOP_CTRL_BUS_CTRL;
+		void __iomem *ahci;
+		struct resource *res;
+		u32 reg;
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   "ahci");
+		ahci = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(ahci))
+			return;
+
+		reg = brcm_sata_readreg(ctrl);
+		reg |= OVERRIDE_HWINIT;
+		brcm_sata_writereg(reg, ctrl);
+
+		/* Clear out the NCQ bit so the AHCI driver will not issue
+		 * FPDMA/NCQ commands.
+		 */
+		reg = readl(ahci + HOST_CAP);
+		reg &= ~HOST_CAP_NCQ;
+		writel(reg, ahci + HOST_CAP);
+
+		reg = brcm_sata_readreg(ctrl);
+		reg &= ~OVERRIDE_HWINIT;
+		brcm_sata_writereg(reg, ctrl);
+
+		devm_iounmap(&pdev->dev, ahci);
+		devm_release_mem_region(&pdev->dev, res->start,
+					resource_size(res));
+	}
+}
+
 static void brcm_sata_init(struct brcm_ahci_priv *priv)
 {
 	/* Configure endianness */
@@ -256,6 +302,13 @@ static int brcm_ahci_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->top_ctrl))
 		return PTR_ERR(priv->top_ctrl);
 
+	if (of_device_is_compatible(dev->of_node, "brcm,bcm7425-ahci")) {
+		priv->quirks |= BRCM_AHCI_QUIRK_NONCQ;
+		priv->quirks |= BRCM_AHCI_QUIRK_SKIP_PHY_ENABLE;
+	}
+
+	brcm_sata_quirks(pdev, priv);
+
 	brcm_sata_init(priv);
 
 	priv->port_mask = brcm_ahci_get_portmask(pdev, priv);
@@ -300,6 +353,7 @@ static int brcm_ahci_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ahci_of_match[] = {
+	{.compatible = "brcm,bcm7425-ahci"},
 	{.compatible = "brcm,bcm7445-ahci"},
 	{},
 };
