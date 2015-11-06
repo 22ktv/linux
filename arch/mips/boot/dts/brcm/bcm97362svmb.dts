@@ -29,18 +29,6 @@
 	status = "okay";
 };
 
-&bsca {
-	status = "okay";
-};
-
-&bscb {
-	status = "okay";
-};
-
-&bscd {
-	status = "okay";
-};
-
 &enet0 {
 	status = "okay";
 };
