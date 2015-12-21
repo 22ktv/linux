@@ -1,4 +1,4 @@
-#!/usr/bin/awk -f
+#!/usr/bin/env awk -f
 # extract linker version number from stdin and turn into single number
 	{
 	gsub(".*)", "");
