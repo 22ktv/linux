@@ -29,26 +29,6 @@
 	status = "okay";
 };
 
-&bsca {
-	status = "okay";
-};
-
-&bscb {
-	status = "okay";
-};
-
-&bscc {
-	status = "okay";
-};
-
-&bscd {
-	status = "okay";
-};
-
-&bsce {
-	status = "okay";
-};
-
 &enet0 {
 	status = "okay";
 };
@@ -83,6 +63,69 @@
 
 &ohci3 {
 	status = "okay";
+};
+
+&sdhci0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+
+	m25p80@0 {
+		compatible = "m25p80";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+		spi-cpha;
+		spi-cpol;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		flash0.cfe@0 {
+			label = "cfe";
+			reg = <0x0 0xa0000>;
+		};
+
+		flash0.nvram@a0000 {
+			label = "nvram";
+			reg = <0xa0000 0x10000>;
+		};
+
+		flash0.mac@b0000 {
+			label = "mac";
+			reg = <0xb0000 0x10000>;
+		};
+	};
+};
+
+&nand0 {
+	status = "okay";
+
+	nandcs@2 {
+		compatible = "brcm,nandcs";
+		reg = <2>;
+		nand-ecc-step-size = <512>;
+		nand-ecc-strength = <4>;
+		nand-on-flash-bbt;
+
+		#size-cells = <1>;
+		#address-cells = <1>;
+
+		flash1.kernel@0 {
+			label = "kernel";
+			reg = <0x0 0x800000>;
+		};
+
+		flash1.splash@800000 {
+			label = "splash";
+			reg = <0x800000 0x400000>;
+		};
+
+		flash1.rootfs@c00000 {
+			label = "rootfs";
+			reg = <0xc00000 0x1f200000>;
+		};
+	};
 };
 
 &sata {
