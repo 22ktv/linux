@@ -124,6 +124,45 @@ const char *get_system_type(void)
 	return "Generic BMIPS kernel";
 }
 
+#define REG_BCM7346_TIMER	((void __iomem *)CKSEG1ADDR(0x104067c0))
+#define REG_BCM7362_TIMER	((void __iomem *)CKSEG1ADDR(0x10406680))
+
+#define BCM73XX_TIMER_IS	0x0
+#define BCM73XX_TIMER_IE0	0x4
+#define BCM73XX_TIMER_0_CTRL	0x8
+#define BCM73XX_TIMER_1_CTRL	0xc
+#define BCM73XX_TIMER_2_CTRL	0x10
+#define BCM73XX_TIMER_3_CTRL	0x14
+#define BCM73XX_TIMER_0_STAT	0x18
+#define BCM73XX_TIMER_1_STAT	0x1c
+#define BCM73XX_TIMER_2_STAT	0x20
+#define BCM73XX_TIMER_3_STAT	0x24
+
+static __init unsigned long bcm73xx_cpu_frequency(void __iomem *regs)
+{
+	unsigned long freq;
+
+	__raw_writel(0, regs + BCM73XX_TIMER_3_CTRL);
+	__raw_readl(regs + BCM73XX_TIMER_3_CTRL);
+	__raw_writel(__raw_readl(regs + BCM73XX_TIMER_IS) | BIT(3),
+			regs + BCM73XX_TIMER_IS);
+	__raw_readl(regs + BCM73XX_TIMER_IS);
+
+	__raw_writel(0xc0000000 | (27000000 / 50),
+			regs + BCM73XX_TIMER_0_CTRL);
+
+	write_c0_count(0);
+
+	while ((__raw_readl(regs + BCM73XX_TIMER_IS) & 1) == 0)
+		;
+
+	freq = read_c0_count();
+
+	__raw_writel(0, regs + BCM73XX_TIMER_0_CTRL);
+
+	return (freq * 50);
+}
+
 void __init plat_time_init(void)
 {
 	struct device_node *np;
@@ -137,6 +176,14 @@ void __init plat_time_init(void)
 	of_node_put(np);
 
 	mips_hpt_frequency = freq;
+
+	if (of_flat_dt_is_compatible(of_get_flat_dt_root(),
+				     "brcm,bcm7346"))
+		mips_hpt_frequency = bcm73xx_cpu_frequency(REG_BCM7346_TIMER);
+
+	if (of_flat_dt_is_compatible(of_get_flat_dt_root(),
+				     "brcm,bcm7362"))
+		mips_hpt_frequency = bcm73xx_cpu_frequency(REG_BCM7362_TIMER);
 }
 
 void __init plat_mem_setup(void)
