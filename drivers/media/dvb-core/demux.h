@@ -346,8 +346,11 @@ struct dmx_frontend {
  */
 enum dmx_demux_caps {
 	DMX_TS_FILTERING = 1,
+	DMX_PES_FILTERING = 2,
 	DMX_SECTION_FILTERING = 4,
 	DMX_MEMORY_BASED_FILTERING = 8,
+	DMX_CRC_CHECKING = 16,
+	DMX_TS_DESCRAMBLING = 32,
 };
 
 /*
