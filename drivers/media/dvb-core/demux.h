@@ -56,6 +56,10 @@
 #define DMX_MAX_SECFEED_SIZE (DMX_MAX_SECTION_SIZE + 188)
 #endif
 
+enum dmx_success {
+	DMX_OK = 0,
+};
+
 /*
  * TS packet reception
  */
@@ -250,7 +254,8 @@ typedef int (*dmx_ts_cb)(const u8 *buffer1,
 			 size_t buffer1_length,
 			 const u8 *buffer2,
 			 size_t buffer2_length,
-			 struct dmx_ts_feed *source);
+			 struct dmx_ts_feed *source,
+			 enum dmx_success success);
 
 /**
  * typedef dmx_section_cb - DVB demux TS filter callback function prototype
@@ -291,7 +296,8 @@ typedef int (*dmx_section_cb)(const u8 *buffer1,
 			      size_t buffer1_len,
 			      const u8 *buffer2,
 			      size_t buffer2_len,
-			      struct dmx_section_filter *source);
+			      struct dmx_section_filter *source,
+			      enum dmx_success success);
 
 /*--------------------------------------------------------------------------*/
 /* DVB Front-End */
