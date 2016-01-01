@@ -56,6 +56,10 @@
 #define DMX_MAX_SECFEED_SIZE (DMX_MAX_SECTION_SIZE + 188)
 #endif
 
+enum dmx_success {
+	DMX_OK = 0,
+};
+
 /*
  * TS packet reception
  */
@@ -250,7 +254,8 @@ typedef int (*dmx_ts_cb)(const u8 *buffer1,
 			 size_t buffer1_length,
 			 const u8 *buffer2,
 			 size_t buffer2_length,
-			 struct dmx_ts_feed *source);
+			 struct dmx_ts_feed *source,
+			 enum dmx_success success);
 
 /**
  * typedef dmx_section_cb - DVB demux TS filter callback function prototype
@@ -291,7 +296,8 @@ typedef int (*dmx_section_cb)(const u8 *buffer1,
 			      size_t buffer1_len,
 			      const u8 *buffer2,
 			      size_t buffer2_len,
-			      struct dmx_section_filter *source);
+			      struct dmx_section_filter *source,
+			      enum dmx_success success);
 
 /*--------------------------------------------------------------------------*/
 /* DVB Front-End */
@@ -310,6 +316,9 @@ typedef int (*dmx_section_cb)(const u8 *buffer1,
 enum dmx_frontend_source {
 	DMX_MEMORY_FE,
 	DMX_FRONTEND_0,
+	DMX_FRONTEND_1,
+	DMX_FRONTEND_2,
+	DMX_FRONTEND_3,
 };
 
 /**
@@ -343,8 +352,11 @@ struct dmx_frontend {
  */
 enum dmx_demux_caps {
 	DMX_TS_FILTERING = 1,
+	DMX_PES_FILTERING = 2,
 	DMX_SECTION_FILTERING = 4,
 	DMX_MEMORY_BASED_FILTERING = 8,
+	DMX_CRC_CHECKING = 16,
+	DMX_TS_DESCRAMBLING = 32,
 };
 
 /*
@@ -582,10 +594,9 @@ struct dmx_demux {
 	int (*get_pes_pids)(struct dmx_demux *demux, u16 *pids);
 
 	/* private: Not used upstream and never documented */
-#if 0
 	int (*get_caps)(struct dmx_demux *demux, struct dmx_caps *caps);
 	int (*set_source)(struct dmx_demux *demux, const dmx_source_t *src);
-#endif
+
 	/*
 	 * private: Only used at av7110, to read some data from firmware.
 	 *	As this was never documented, we have no clue about what's
