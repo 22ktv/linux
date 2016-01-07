@@ -145,8 +145,8 @@
 		};
 
 		enet0: ethernet@430000 {
-			phy-mode = "internal";
-			phy-handle = <&phy1>;
+			phy-mode = "rgmii";
+			phy-handle = <&phy0>;
 			mac-address = [ 00 10 18 36 23 1a ];
 			compatible = "brcm,genet-v2";
 			#address-cells = <0x1>;
@@ -162,10 +162,10 @@
 				#size-cells = <0x0>;
 				reg = <0xe14 0x8>;
 
-				phy1: ethernet-phy@1 {
-					max-speed = <100>;
-					reg = <0x1>;
-					compatible = "brcm,40nm-ephy",
+				phy0: ethernet-phy@0 {
+					max-speed = <1000>;
+					reg = <0x0>;
+					compatible = "brcm,bcm54610",
 						"ethernet-phy-ieee802.3-c22";
 				};
 			};
