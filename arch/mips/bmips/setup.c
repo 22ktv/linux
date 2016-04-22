@@ -139,6 +139,29 @@ void __init prom_free_prom_memory(void)
 
 const char *get_system_type(void)
 {
+	struct device_node *sun_top_ctrl;
+	void __iomem *sun_top_ctrl_base;
+	u32 family_id;
+	u32 product_id;
+
+	sun_top_ctrl = of_find_node_by_name(NULL, "syscon");
+	if (sun_top_ctrl) {
+		static char buf[128];
+
+		sun_top_ctrl_base = of_iomap(sun_top_ctrl, 0);
+
+		family_id  = readl(sun_top_ctrl_base);
+		product_id = readl(sun_top_ctrl_base + 0x4);
+
+		iounmap(sun_top_ctrl_base);
+
+		snprintf(buf, sizeof(buf), "bcm%x/%c%d",
+			 family_id >> 28 ? family_id >> 16 : family_id >> 8,
+			 ((product_id & 0xf0) >> 4) + 'A', product_id & 0xf);
+
+		return buf;
+	}
+
 	return "Generic BMIPS kernel";
 }
 
