@@ -14,6 +14,7 @@
 #include <asm/mipsregs.h>
 #include <asm/processor.h>
 #include <asm/prom.h>
+#include <asm/time.h>
 
 unsigned int vced_count, vcei_count;
 
@@ -65,6 +66,17 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, "BogoMIPS\t\t: %u.%02u\n",
 		      cpu_data[n].udelay_val / (500000/HZ),
 		      (cpu_data[n].udelay_val / (5000/HZ)) % 100);
+#ifdef CONFIG_BMIPS_GENERIC
+	if (current_cpu_type() == CPU_BMIPS5000) {
+		seq_printf(m, "cpu MHz\t\t\t: %u.%03u\n",
+			(mips_hpt_frequency * 8 / 1000000),
+			(mips_hpt_frequency * 8 % 1000000 / 1000));
+	} else {
+		seq_printf(m, "cpu MHz\t\t\t: %u.%03u\n",
+			(mips_hpt_frequency * 2 / 1000000),
+			(mips_hpt_frequency * 2 % 1000000 / 1000));
+	}
+#endif
 	seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
 	seq_printf(m, "microsecond timers\t: %s\n",
 		      cpu_has_counter ? "yes" : "no");
