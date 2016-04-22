@@ -31,6 +31,8 @@
 #include <asm/fw/cfe/cfe_api.h>
 #include <asm/fw/cfe/cfe_error.h>
 
+#include <linux/soc/brcmstb/brcmstb.h>
+
 #define RELO_NORMAL_VEC		BIT(18)
 
 #define REG_BCM6328_OTP		((void __iomem *)CKSEG1ADDR(0x1000062c))
@@ -178,6 +180,21 @@ void __init prom_free_prom_memory(void)
 
 const char *get_system_type(void)
 {
+	u32 family_id;
+	u32 product_id;
+
+	family_id  = brcmstb_get_family_id();
+	product_id = brcmstb_get_product_id();
+
+	if (family_id) {
+		static char buf[128];
+
+		snprintf(buf, sizeof(buf), "bcm%x/%c%d",
+			 family_id >> 28 ? family_id >> 16 : family_id >> 8,
+			 ((product_id & 0xf0) >> 4) + 'A', product_id & 0xf);
+
+		return buf;
+	} else
 	return "Generic BMIPS kernel";
 }
 
