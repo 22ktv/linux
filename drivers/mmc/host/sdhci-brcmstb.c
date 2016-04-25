@@ -87,6 +87,9 @@ static int brcmstb_sdhci_probe(struct platform_device *pdev)
         mmc_of_parse(host->mmc);
         sdhci_get_of_property(pdev);
 
+	if (of_get_property(np, "broken-64-bit-dma", NULL))
+		host->quirks2 |= SDHCI_QUIRK2_BROKEN_64_BIT_DMA;
+
 	ret = sdhci_add_host(host);
 	if (ret)
 		goto err_clk;
