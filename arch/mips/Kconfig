@@ -1798,6 +1798,7 @@ config CPU_BMIPS4380
 	select MIPS_L1_CACHE_SHIFT_6
 	select SYS_SUPPORTS_SMP
 	select SYS_SUPPORTS_HOTPLUG_CPU
+	select CPU_HAS_RIXI
 
 config CPU_BMIPS5000
 	bool
@@ -1805,6 +1806,7 @@ config CPU_BMIPS5000
 	select MIPS_L1_CACHE_SHIFT_7
 	select SYS_SUPPORTS_SMP
 	select SYS_SUPPORTS_HOTPLUG_CPU
+	select CPU_HAS_RIXI
 
 config SYS_HAS_CPU_LOONGSON3
 	bool
@@ -1962,11 +1964,13 @@ config CPU_MIPSR2
 	bool
 	default y if CPU_MIPS32_R2 || CPU_MIPS64_R2 || CPU_CAVIUM_OCTEON
 	select MIPS_SPRAM
+	select CPU_HAS_RIXI
 
 config CPU_MIPSR6
 	bool
 	default y if CPU_MIPS32_R6 || CPU_MIPS64_R6
 	select MIPS_SPRAM
+	select CPU_HAS_RIXI
 
 config EVA
 	bool
@@ -2369,6 +2373,9 @@ config CPU_HAS_WB
 	bool
 
 config XKS01
+	bool
+
+config CPU_HAS_RIXI
 	bool
 
 #
