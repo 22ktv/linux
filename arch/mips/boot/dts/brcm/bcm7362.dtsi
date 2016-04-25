@@ -22,6 +22,11 @@
 		};
 	};
 
+	timer {
+		compatible = "brcm,brcmstb-timer";
+		reg = <0x10406680 0x28>;
+	};
+
 	aliases {
 		uart0 = &uart0;
 	};
@@ -85,22 +90,22 @@
 			compatible = "brcm,bcm7120-l2-intc";
 			reg = <0x406600 0x8>;
 
-			brcm,int-map-mask = <0x44>, <0x7000000>;
+			brcm,int-map-mask = <0x44>;
 			brcm,int-fwd-mask = <0x70000>;
 
 			interrupt-controller;
 			#interrupt-cells = <1>;
 
 			interrupt-parent = <&periph_intc>;
-			interrupts = <56>, <54>;
-			interrupt-names = "upg_main", "upg_bsc";
+			interrupts = <56>;
+			interrupt-names = "upg_main";
 		};
 
 		upg_aon_irq0_intc: upg_aon_irq0_intc@408b80 {
 			compatible = "brcm,bcm7120-l2-intc";
 			reg = <0x408b80 0x8>;
 
-			brcm,int-map-mask = <0x40>, <0x8000000>, <0x100000>;
+			brcm,int-map-mask = <0x40>;
 			brcm,int-fwd-mask = <0>;
 			brcm,irq-can-wake;
 
@@ -108,9 +113,8 @@
 			#interrupt-cells = <1>;
 
 			interrupt-parent = <&periph_intc>;
-			interrupts = <57>, <55>, <59>;
-			interrupt-names = "upg_main_aon", "upg_bsc_aon",
-					  "upg_spi";
+			interrupts = <57>;
+			interrupt-names = "upg_main_aon";
 		};
 
 		sun_top_ctrl: syscon@404000 {
@@ -274,6 +278,60 @@
 				reg = <1>;
 				#phy-cells = <0>;
 			};
+		};
+
+		sdhci0: sdhci@410000 {
+			compatible = "brcm,sdhci-brcmstb";
+			reg-names = "host", "cfg";
+			reg = <0x410000 0x100>, <0x410100 0x100>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <82>;
+			broken-64-bit-dma;
+			status = "disabled";
+		};
+
+		hif_spi_intr2_intc: hif_spi_intr2_intc@411d00 {
+			compatible = "brcm,l2-intc";
+			reg = <0x411d00 0x30>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <31>;
+			interrupt-names = "hif_spi";
+		};
+
+		spi0: spi@413000 {
+			compatible = "brcm,spi-brcmstb";
+			reg = <0x413200 0x188>, <0x413000 0x50>,
+			      <0x413100 0x24>;
+			reg-names = "hif_mspi", "bspi", "bspi_raf";
+			interrupt-parent = <&hif_spi_intr2_intc>;
+			interrupts = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		hif_intr2_intc: hif_intr2_intc@411000 {
+			compatible = "brcm,l2-intc";
+			reg = <0x411000 0x30>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <30>;
+			interrupt-names = "hif";
+		};
+
+		nand0: nand@412800 {
+			compatible = "brcm,brcmnand-v5.0", "brcm,brcmnand";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg-names = "nand";
+			reg = <0x412800 0x400>;
+			interrupt-parent = <&hif_intr2_intc>;
+			interrupt-names = "nand_ctlrdy";
+			interrupts = <24>;
+			status = "disabled";
 		};
 	};
 };

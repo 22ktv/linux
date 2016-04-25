@@ -22,6 +22,11 @@
 		};
 	};
 
+	timer {
+		compatible = "brcm,brcmstb-timer";
+		reg = <0x104067c0 0x28>;
+	};
+
 	aliases {
 		uart0 = &uart0;
 	};
@@ -85,22 +90,22 @@
 			compatible = "brcm,bcm7120-l2-intc";
 			reg = <0x406780 0x8>;
 
-			brcm,int-map-mask = <0x44>, <0xf000000>;
+			brcm,int-map-mask = <0x44>;
 			brcm,int-fwd-mask = <0x70000>;
 
 			interrupt-controller;
 			#interrupt-cells = <1>;
 
 			interrupt-parent = <&periph_intc>;
-			interrupts = <59>, <57>;
-			interrupt-names = "upg_main", "upg_bsc";
+			interrupts = <59>;
+			interrupt-names = "upg_main";
 		};
 
 		upg_aon_irq0_intc: upg_aon_irq0_intc@408b80 {
 			compatible = "brcm,bcm7120-l2-intc";
 			reg = <0x408b80 0x8>;
 
-			brcm,int-map-mask = <0x40>, <0x8000000>, <0x100000>;
+			brcm,int-map-mask = <0x40>;
 			brcm,int-fwd-mask = <0>;
 			brcm,irq-can-wake;
 
@@ -108,9 +113,8 @@
 			#interrupt-cells = <1>;
 
 			interrupt-parent = <&periph_intc>;
-			interrupts = <60>, <58>, <62>;
-			interrupt-names = "upg_main_aon", "upg_bsc_aon",
-					  "upg_spi";
+			interrupts = <60>;
+			interrupt-names = "upg_main_aon";
 		};
 
 		sun_top_ctrl: syscon@404000 {
@@ -211,8 +215,8 @@
 		};
 
 		enet0: ethernet@430000 {
-			phy-mode = "internal";
-			phy-handle = <&phy1>;
+			phy-mode = "rgmii";
+			phy-handle = <&phy0>;
 			mac-address = [ 00 10 18 36 23 1a ];
 			compatible = "brcm,genet-v2";
 			#address-cells = <0x1>;
@@ -228,10 +232,10 @@
 				#size-cells = <0x0>;
 				reg = <0xe14 0x8>;
 
-				phy1: ethernet-phy@1 {
-					max-speed = <100>;
-					reg = <0x1>;
-					compatible = "brcm,40nm-ephy",
+				phy0: ethernet-phy@0 {
+					max-speed = <1000>;
+					reg = <0x0>;
+					compatible = "brcm,bcm54610",
 						"ethernet-phy-ieee802.3-c22";
 				};
 			};
@@ -351,6 +355,59 @@
 				reg = <1>;
 				#phy-cells = <0>;
 			};
+		};
+
+		sdhci0: sdhci@413500 {
+			compatible = "brcm,sdhci-brcmstb";
+			reg-names = "host", "cfg";
+			reg = <0x413500 0x100>, <0x413600 0x100>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <85>;
+			status = "disabled";
+		};
+
+		hif_spi_intr2_intc: hif_spi_intr2_intc@411d00 {
+			compatible = "brcm,l2-intc";
+			reg = <0x411d00 0x30>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <31>;
+			interrupt-names = "hif_spi";
+		};
+
+		spi0: spi@413000 {
+			compatible = "brcm,spi-brcmstb";
+			reg = <0x413200 0x188>, <0x413000 0x50>,
+			      <0x413100 0x24>;
+			reg-names = "hif_mspi", "bspi", "bspi_raf";
+			interrupt-parent = <&hif_spi_intr2_intc>;
+			interrupts = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		hif_intr2_intc: hif_intr2_intc@411000 {
+			compatible = "brcm,l2-intc";
+			reg = <0x411000 0x30>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <30>;
+			interrupt-names = "hif";
+		};
+
+		nand0: nand@412800 {
+			compatible = "brcm,brcmnand-v5.0", "brcm,brcmnand";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg-names = "nand";
+			reg = <0x412800 0x400>;
+			interrupt-parent = <&hif_intr2_intc>;
+			interrupt-names = "nand_ctlrdy";
+			interrupts = <24>;
+			status = "disabled";
 		};
 	};
 };
