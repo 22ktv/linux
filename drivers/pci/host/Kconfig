@@ -163,6 +163,23 @@ config PCI_VERSATILE
 	bool "ARM Versatile PB PCI controller"
 	depends on ARCH_VERSATILE
 
+config PCIE_BRCMSTB
+	tristate "Broadcom STB PCIe controller"
+	depends on OF && (ARCH_BRCMSTB || BMIPS_GENERIC)
+	default ARCH_BRCMSTB || BMIPS_GENERIC
+	help
+	  Say Y here if you want to use the Broadcom STB PCIe controller. This
+	  controller supports Broadcom's STB SoCs such a 7425, 7429, 7435 and
+	  7445 and compatible chips.
+
+config PCIE_BRCMSTB_MSI
+	bool "Broadcom STB PCIe MSI feature"
+	depends on PCIE_BRCMSTB && PCI_MSI
+	select PCI_MSI_IRQ_DOMAIN
+	default PCIE_BRCMSTB
+	help
+	  Say Y here if you want PCIe MSI support for the Broadcom STB PCIe RC.
+
 config PCIE_IPROC
 	tristate
 	help
