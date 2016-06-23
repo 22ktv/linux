@@ -103,6 +103,7 @@ static int sdhci_brcmstb_probe(struct platform_device *pdev)
 			SDHCI_SUPPORT_DDR50);
 	host->quirks |= SDHCI_QUIRK_MISSING_CAPS |
 		SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
+	host->quirks2 |= SDHCI_QUIRK2_BROKEN_64_BIT_DMA;
 
 	res = sdhci_add_host(host);
 	if (res)
