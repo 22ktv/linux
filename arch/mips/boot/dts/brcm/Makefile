@@ -11,6 +11,8 @@ dtb-$(CONFIG_DT_BCM97362SVMB)		+= bcm97362svmb.dtb
 dtb-$(CONFIG_DT_BCM97420C)		+= bcm97420c.dtb
 dtb-$(CONFIG_DT_BCM97425SVMB)		+= bcm97425svmb.dtb
 dtb-$(CONFIG_DT_BCM97435SVMB)		+= bcm97435svmb.dtb
+dtb-$(CONFIG_DT_BCM97346XC)		+= bcm97346xc.dtb
+dtb-$(CONFIG_DT_BCM97362XC)		+= bcm97362xc.dtb
 
 dtb-$(CONFIG_DT_NONE)			+= \
 						bcm93384wvg.dtb		\
