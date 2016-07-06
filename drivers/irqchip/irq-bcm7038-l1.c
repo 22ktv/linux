@@ -303,7 +303,8 @@ int __init bcm7038_l1_of_init(struct device_node *dn,
 		}
 	}
 
-	intc->domain = irq_domain_add_linear(dn, IRQS_PER_WORD * intc->n_words,
+	intc->domain = irq_domain_add_simple(dn, IRQS_PER_WORD * intc->n_words,
+					     (MIPS_CPU_IRQ_BASE + 8),
 					     &bcm7038_l1_domain_ops,
 					     intc);
 	if (!intc->domain) {
