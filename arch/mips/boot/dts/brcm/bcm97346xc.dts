@@ -8,7 +8,7 @@
 
 	memory@0 {
 		device_type = "memory";
-		reg = <0x00000000 0x10000000>, <0x30000000 0x20000000>;
+		reg = <0x00000000 0x04000000>, <0x30000000 0x20000000>;
 	};
 
 	chosen {
@@ -19,6 +19,14 @@
 	timer {
 		compatible = "brcm,brcmstb-timer";
 		reg = <0x104067c0 0x28>;
+	};
+
+	clocks {
+		upg_clk: upg_clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <27000000>;
+		};
 	};
 
 	rdb {
@@ -51,6 +59,22 @@
 			interrupt-parent = <&periph_intc>;
 			interrupts = <60>;
 			interrupt-names = "upg_main_aon";
+		};
+
+		pwma: pwm@406580 {
+			compatible = "brcm,bcm7038-pwm";
+			reg = <0x406580 0x28>;
+			#pwm-cells = <2>;
+			clocks = <&upg_clk>;
+			status = "disabled";
+		};
+
+		pwmb: pwm@406800 {
+			compatible = "brcm,bcm7038-pwm";
+			reg = <0x406800 0x28>;
+			#pwm-cells = <2>;
+			clocks = <&upg_clk>;
+			status = "disabled";
 		};
 
 		enet0: ethernet@430000 {
@@ -147,6 +171,14 @@
 };
 
 &uart2 {
+	status = "okay";
+};
+
+&pwma {
+	status = "okay";
+};
+
+&pwmb {
 	status = "okay";
 };
 
