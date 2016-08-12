@@ -1031,6 +1031,21 @@ static int gic_irq_domain_translate(struct irq_domain *d,
 	return -EINVAL;
 }
 
+static int gic_irq_domain_node_xlate(struct irq_domain *domain,
+				     struct device_node *node,
+				     const u32 *intspec, unsigned int intsize,
+				     unsigned long *hwirq,
+				     unsigned int *type)
+{
+	struct irq_fwspec fwspec = { };
+
+	fwspec.fwnode = &node->fwnode;
+	fwspec.param_count = intsize;
+	memcpy(fwspec.param, intspec, sizeof(u32) * intsize);
+
+	return gic_irq_domain_translate(domain, &fwspec, hwirq, type);
+}
+
 static int gic_starting_cpu(unsigned int cpu)
 {
 	gic_cpu_init(&gic_data[0]);
@@ -1067,6 +1082,7 @@ static const struct irq_domain_ops gic_irq_domain_hierarchy_ops = {
 static const struct irq_domain_ops gic_irq_domain_ops = {
 	.map = gic_irq_domain_map,
 	.unmap = gic_irq_domain_unmap,
+	.xlate = gic_irq_domain_node_xlate,
 };
 
 static void gic_init_chip(struct gic_chip_data *gic, struct device *dev,
@@ -1139,9 +1155,36 @@ static int gic_init_bases(struct gic_chip_data *gic, int irq_start,
 	gic->gic_irqs = gic_irqs;
 
 	if (handle) {		/* DT/ACPI */
+#ifndef CONFIG_ARCH_BRCMSTB
 		gic->domain = irq_domain_create_linear(handle, gic_irqs,
 						       &gic_irq_domain_hierarchy_ops,
 						       gic);
+#else
+		/*
+		 * For primary GICs, skip over SGIs.
+		 * For secondary GICs, skip over PPIs, too.
+		 */
+		if (gic == &gic_data[0] && (irq_start & 31) > 0) {
+			hwirq_base = 16;
+			if (irq_start != -1)
+				irq_start = (irq_start & ~31) + 16;
+		} else {
+			hwirq_base = 32;
+		}
+
+		gic_irqs -= hwirq_base; /* calculate # of irqs to allocate */
+
+		irq_base = irq_alloc_descs(irq_start, 16, gic_irqs,
+					   numa_node_id());
+		if (irq_base < 0) {
+			WARN(1, "Cannot allocate irq_descs @ IRQ%d, assuming pre-allocated\n",
+			     irq_start);
+			irq_base = irq_start;
+		}
+
+		gic->domain = irq_domain_add_legacy(to_of_node(handle), gic_irqs, irq_base,
+					hwirq_base, &gic_irq_domain_ops, gic);
+#endif
 	} else {		/* Legacy support */
 		/*
 		 * For primary GICs, skip over SGIs.
