@@ -1121,12 +1121,12 @@ void __init debug_ll_io_init(void)
 }
 #endif
 
-static unsigned long __initdata vmalloc_size = 240 * SZ_1M;
+static unsigned long __initdata vmalloc_size = 744 * SZ_1M;
 
 /*
  * vmalloc=size forces the vmalloc area to be exactly 'size'
  * bytes. This can be used to increase (or decrease) the vmalloc
- * area - the default is 240MiB.
+ * area - the default is 744MiB.
  */
 static int __init early_vmalloc(char *arg)
 {
