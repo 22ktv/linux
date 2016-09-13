@@ -78,6 +78,14 @@ config DT_SFR_NEUFBOX6_SERCOMM
 	bool "SFR Neufbox 6 (Sercomm)"
 	select BUILTIN_DTB
 
+config DT_XC7346
+	bool "xc7346"
+	select BUILTIN_DTB
+
+config DT_XC7362
+	bool "xc7362"
+	select BUILTIN_DTB
+
 endchoice
 
 config OF_CFE
