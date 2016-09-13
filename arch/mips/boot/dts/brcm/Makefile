@@ -15,6 +15,8 @@ dtb-$(CONFIG_DT_COMTREND_VR3032U)	+= bcm63268-comtrend-vr-3032u.dtb
 dtb-$(CONFIG_DT_NETGEAR_CVG834G)	+= bcm3368-netgear-cvg834g.dtb
 dtb-$(CONFIG_DT_SFR_NEUFBOX4_SERCOMM)	+= bcm6358-neufbox4-sercomm.dtb
 dtb-$(CONFIG_DT_SFR_NEUFBOX6_SERCOMM)	+= bcm6362-neufbox6-sercomm.dtb
+dtb-$(CONFIG_DT_XC7346)			+= xc7346.dtb
+dtb-$(CONFIG_DT_XC7362)			+= xc7362.dtb
 
 dtb-$(CONFIG_DT_NONE) += \
 	bcm3368-netgear-cvg834g.dtb \
@@ -32,6 +34,8 @@ dtb-$(CONFIG_DT_NONE) += \
 	bcm97362svmb.dtb \
 	bcm97420c.dtb \
 	bcm97425svmb.dtb \
-	bcm97435svmb.dtb
+	bcm97435svmb.dtb \
+	xc7346.dtb \
+	xc7362.dtb
 
 obj-y				+= $(patsubst %.dtb, %.dtb.o, $(dtb-y))
