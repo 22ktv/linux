@@ -1,0 +1,188 @@
+/dts-v1/;
+
+/include/ "bcm7362.dtsi"
+
+/ {
+	compatible = "brcm,bcm97362svmb", "brcm,bcm7362";
+	model = "Broadcom BCM97362SVMB";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x10000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+		stdout-path = &uart0;
+	};
+
+	timer {
+		compatible = "brcm,brcmstb-timer";
+		reg = <0x10406680 0x28>;
+	};
+
+	rdb {
+		spi_l2_intc: interrupt-controller@411d00 {
+			compatible = "brcm,l2-intc";
+			reg = <0x411d00 0x30>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&periph_intc>;
+			interrupts = <31>;
+		};
+
+		qspi: spi@413000 {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			compatible = "brcm,spi-bcm-qspi",
+				     "brcm,spi-brcmstb-qspi";
+			reg = <0x410920 0x4 0x413200 0x188 0x413000 0x50>;
+			reg-names = "cs_reg", "hif_mspi", "bspi";
+			interrupts = <0x0 0x1 0x2 0x3 0x4 0x5 0x6>;
+			interrupt-parent = <&spi_l2_intc>;
+			interrupt-names = "spi_lr_fullness_reached",
+					  "spi_lr_session_aborted",
+					  "spi_lr_impatient",
+					  "spi_lr_session_done",
+					  "spi_lr_overread",
+					  "mspi_done",
+					  "mspi_halted";
+			status = "disabled";
+		};
+
+		mspi: spi@408a00 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&upg_clk>;
+			compatible = "brcm,spi-bcm-qspi",
+				     "brcm,spi-brcmstb-mspi";
+			reg = <0x408a00 0x180>;
+			reg-names = "mspi";
+			interrupts = <0x14>;
+			interrupt-parent = <&upg_aon_irq0_intc>;
+			interrupt-names = "mspi_done";
+			status = "disabled";
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&bsca {
+	clock-frequency = <97500>;
+	status = "okay";
+};
+
+&bscb {
+	clock-frequency = <97500>;
+	status = "okay";
+};
+
+&bscd {
+	clock-frequency = <97500>;
+	status = "okay";
+};
+
+&pwma {
+	status = "okay";
+};
+
+&enet0 {
+	status = "okay";
+};
+
+&ehci0 {
+	status = "okay";
+};
+
+&ohci0 {
+	status = "okay";
+};
+
+&sata {
+	status = "okay";
+};
+
+&sata_phy {
+	status = "okay";
+};
+
+&sdhci0 {
+	status = "okay";
+};
+
+&nand {
+	status = "okay";
+
+	nandcs@2 {
+		compatible = "brcm,nandcs";
+		reg = <2>;
+		nand-on-flash-bbt;
+
+		nand-ecc-strength = <4>;
+		nand-ecc-step-size = <512>;
+		brcm,nand-oob-sector-size = <32>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <0x2>;
+			#size-cells = <0x2>;
+
+			flash1.kernel@0 {
+				label = "kernel";
+				reg = <0x0 0x0 0x0 0x800000>;
+			};
+
+			flash1.splash@800000 {
+				label = "splash";
+				reg = <0x0 0x800000 0x0 0x400000>;
+			};
+
+			flash1.rootfs@c00000 {
+				label = "rootfs";
+				reg = <0x0 0xc00000 0x0 0x1f200000>;
+			};
+		};
+	};
+};
+
+&qspi {
+	status = "okay";
+
+	m25p80@0 {
+		#size-cells = <0x2>;
+		#address-cells = <0x2>;
+		compatible = "m25p80";
+		reg = <0>;
+		spi-max-frequency = <0x2625a00>;
+		spi-cpol;
+		spi-cpha;
+		use-bspi;
+		m25p,fast-read;
+
+		flash0.cfe@0 {
+			label = "cfe";
+			reg = <0x0 0x0 0x0 0xa0000>;
+		};
+
+		flash0.nvram@a0000 {
+			label = "nvram";
+			reg = <0x0 0xa0000 0x0 0x10000>;
+		};
+
+		flash0.mac@b0000 {
+			label = "mac";
+			reg = <0x0 0xb0000 0x0 0x10000>;
+		};
+	};
+};

@@ -11,6 +11,8 @@ dtb-$(CONFIG_DT_BCM97362SVMB)		+= bcm97362svmb.dtb
 dtb-$(CONFIG_DT_BCM97420C)		+= bcm97420c.dtb
 dtb-$(CONFIG_DT_BCM97425SVMB)		+= bcm97425svmb.dtb
 dtb-$(CONFIG_DT_BCM97435SVMB)		+= bcm97435svmb.dtb
+dtb-$(CONFIG_DT_XC7346)			+= xc7346.dtb
+dtb-$(CONFIG_DT_XC7362)			+= xc7362.dtb
 
 dtb-$(CONFIG_DT_NONE)			+= \
 						bcm93384wvg.dtb		\
@@ -24,7 +26,9 @@ dtb-$(CONFIG_DT_NONE)			+= \
 						bcm97360svmb.dtb	\
 						bcm97362svmb.dtb	\
 						bcm97420c.dtb		\
-						bcm97425svmb.dtb
+						bcm97425svmb.dtb	\
+						xc7346.dtb		\
+						xc7362.dtb
 
 obj-y				+= $(patsubst %.dtb, %.dtb.o, $(dtb-y))
 

@@ -65,6 +65,14 @@ config DT_BCM97435SVMB
 	bool "BCM97435SVMB"
 	select BUILTIN_DTB
 
+config DT_XC7346
+	bool "xc7346"
+	select BUILTIN_DTB
+
+config DT_XC7362
+	bool "xc7362"
+	select BUILTIN_DTB
+
 endchoice
 
 config OF_CFE
