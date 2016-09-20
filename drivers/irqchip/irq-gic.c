@@ -991,6 +991,30 @@ static int gic_irq_domain_translate(struct irq_domain *d,
 	return -EINVAL;
 }
 
+static int gic_irq_domain_xlate(struct irq_domain *d,
+				struct device_node *controller,
+				const u32 *intspec, unsigned int intsize,
+				unsigned long *out_hwirq, unsigned int *out_type)
+{
+	unsigned long ret = 0;
+
+	if (irq_domain_get_of_node(d) != controller)
+		return -EINVAL;
+	if (intsize < 3)
+		return -EINVAL;
+
+	/* Get the interrupt number and add 16 to skip over SGIs */
+	*out_hwirq = intspec[1] + 16;
+
+	/* For SPIs, we need to add 16 more to get the GIC irq ID number */
+	if (!intspec[0])
+		*out_hwirq += 16;
+
+	*out_type = intspec[2] & IRQ_TYPE_SENSE_MASK;
+
+	return ret;
+}
+
 static int gic_starting_cpu(unsigned int cpu)
 {
 	gic_cpu_init(&gic_data[0]);
@@ -1024,6 +1048,7 @@ static const struct irq_domain_ops gic_irq_domain_hierarchy_ops = {
 static const struct irq_domain_ops gic_irq_domain_ops = {
 	.map = gic_irq_domain_map,
 	.unmap = gic_irq_domain_unmap,
+	.xlate = gic_irq_domain_xlate,
 };
 
 static void gic_init_chip(struct gic_chip_data *gic, struct device *dev,
@@ -1096,9 +1121,36 @@ static int gic_init_bases(struct gic_chip_data *gic, int irq_start,
 	gic->gic_irqs = gic_irqs;
 
 	if (handle) {		/* DT/ACPI */
+#if 0
 		gic->domain = irq_domain_create_linear(handle, gic_irqs,
 						       &gic_irq_domain_hierarchy_ops,
 						       gic);
+#else
+		/*
+		 * For primary GICs, skip over SGIs.
+		 * For secondary GICs, skip over PPIs, too.
+		 */
+		if (gic == &gic_data[0] && (irq_start & 31) > 0) {
+			hwirq_base = 16;
+			if (irq_start != -1)
+				irq_start = (irq_start & ~31) + 16;
+		} else {
+			hwirq_base = 32;
+		}
+
+		gic_irqs -= hwirq_base; /* calculate # of irqs to allocate */
+
+		irq_base = irq_alloc_descs(irq_start, 16, gic_irqs,
+					   numa_node_id());
+		if (IS_ERR_VALUE(irq_base)) {
+			WARN(1, "Cannot allocate irq_descs @ IRQ%d, assuming pre-allocated\n",
+			     irq_start);
+			irq_base = irq_start;
+		}
+
+		gic->domain = irq_domain_add_legacy(to_of_node(handle), gic_irqs, irq_base,
+					hwirq_base, &gic_irq_domain_ops, gic);
+#endif
 	} else {		/* Legacy support */
 		/*
 		 * For primary GICs, skip over SGIs.
