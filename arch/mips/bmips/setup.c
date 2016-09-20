@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/libfdt.h>
 #include <linux/smp.h>
 #include <asm/addrspace.h>
@@ -28,6 +29,12 @@
 #include <asm/smp-ops.h>
 #include <asm/time.h>
 #include <asm/traps.h>
+
+#ifdef CONFIG_OF_CFE
+extern void __init of_cfe_early_param(void);
+#else
+static inline void __init of_cfe_early_param(void) {}
+#endif
 
 #define RELO_NORMAL_VEC		BIT(18)
 
@@ -133,6 +140,29 @@ void __init prom_free_prom_memory(void)
 
 const char *get_system_type(void)
 {
+	struct device_node *sun_top_ctrl;
+	void __iomem *sun_top_ctrl_base;
+	u32 family_id;
+	u32 product_id;
+
+	sun_top_ctrl = of_find_node_by_name(NULL, "syscon");
+	if (sun_top_ctrl) {
+		static char buf[128];
+
+		sun_top_ctrl_base = of_iomap(sun_top_ctrl, 0);
+
+		family_id  = readl(sun_top_ctrl_base);
+		product_id = readl(sun_top_ctrl_base + 0x4);
+
+		iounmap(sun_top_ctrl_base);
+
+		snprintf(buf, sizeof(buf), "bcm%x/%c%d",
+			 family_id >> 28 ? family_id >> 16 : family_id >> 8,
+			 ((product_id & 0xf0) >> 4) + 'A', product_id & 0xf);
+
+		return buf;
+	}
+
 	return "Generic BMIPS kernel";
 }
 
@@ -140,6 +170,40 @@ void __init plat_time_init(void)
 {
 	struct device_node *np;
 	u32 freq;
+
+	np = of_find_node_by_name(NULL, "timer");
+	if (np) {
+		void __iomem *timer_base;
+
+		timer_base = of_iomap(np, 0);
+		if (timer_base) {
+			u32 sample_period = 50;
+
+			__raw_writel(0, timer_base + 0x14);
+			__raw_readl(timer_base + 0x14);
+
+			__raw_writel(__raw_readl(timer_base) | BIT(3),
+				     timer_base);
+			__raw_readl(timer_base);
+
+			__raw_writel(0xc0000000 | (27000000 / sample_period),
+				     timer_base + 0x8);
+
+			write_c0_count(0);
+
+			while ((__raw_readl(timer_base) & 1) == 0)
+				;
+
+			freq = read_c0_count();
+
+			__raw_writel(0, timer_base + 0x8);
+
+			iounmap(timer_base);
+
+			mips_hpt_frequency = (freq * sample_period);
+			return;
+		}
+	}
 
 	np = of_find_node_by_name(NULL, "cpus");
 	if (!np)
@@ -185,6 +249,8 @@ void __init plat_mem_setup(void)
 			q->quirk_fn();
 		}
 	}
+
+	of_cfe_early_param();
 }
 
 void __init device_tree_init(void)
