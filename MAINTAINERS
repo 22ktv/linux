@@ -2601,6 +2601,7 @@ S:	Maintained
 F:	arch/arm/mach-bcm/*brcmstb*
 F:	arch/arm/boot/dts/bcm7*.dts*
 F:	drivers/bus/brcmstb_gisb.c
+F:	drivers/pci/host/pcie-brcmstb*.[ch]
 N:	brcmstb
 
 BROADCOM BMIPS MIPS ARCHITECTURE
