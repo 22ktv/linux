@@ -124,6 +124,7 @@
 #define INTR_COUNT				0x07
 
 #define NUM_CHIPSELECT				4
+#define MSPI_BASE_FREQ				27000000UL
 #define QSPI_SPBR_MIN				8U
 #define QSPI_SPBR_MAX				255U
 
@@ -1298,7 +1299,7 @@ int bcm_qspi_probe(struct platform_device *pdev,
 	qspi->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(qspi->clk)) {
 		dev_warn(dev, "unable to get clock\n");
-		goto qspi_probe_err;
+		qspi->clk = NULL;
 	}
 
 	ret = clk_prepare_enable(qspi->clk);
@@ -1307,7 +1308,10 @@ int bcm_qspi_probe(struct platform_device *pdev,
 		goto qspi_probe_err;
 	}
 
-	qspi->base_clk = clk_get_rate(qspi->clk);
+	if (qspi->clk)
+		qspi->base_clk = clk_get_rate(qspi->clk);
+	else
+		qspi->base_clk = MSPI_BASE_FREQ;
 	qspi->max_speed_hz = qspi->base_clk / (QSPI_SPBR_MIN * 2);
 
 	bcm_qspi_hw_init(qspi);
