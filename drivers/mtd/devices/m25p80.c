@@ -155,9 +155,16 @@ static ssize_t m25p80_read(struct spi_nor *nor, loff_t from, size_t len,
 		msg.data_nbits = m25p80_rx_nbits(nor);
 
 		ret = spi_flash_read(spi, &msg);
-		if (ret < 0)
+
+		if (ret >= 0)
+			return msg.retlen;
+
+		/*
+		 * some spi master drivers might need to fallback to
+		 * normal spi transfer
+		 */
+		if (ret != -EAGAIN)
 			return ret;
-		return msg.retlen;
 	}
 
 	spi_message_init(&m);
