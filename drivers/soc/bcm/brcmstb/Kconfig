@@ -8,4 +8,10 @@ config BRCMSTB_PM
 	depends on ARCH_BRCMSTB || BMIPS_GENERIC
 	select ARM_CPU_SUSPEND if ARM
 
+config BRCMSTB_SRPD
+	tristate "Support enabling DDR self-refresh modes"
+	help
+	  Provides a sysfs interface for setting the self-refresh timeout
+	  value on Broadcom STB memory controllers.
+
 endif # SOC_BRCMSTB
