@@ -20,4 +20,14 @@ config SOC_BRCMSTB
 
 	  If unsure, say N.
 
+if SOC_BRCMSTB
+
+config BRCMSTB_SRPD
+	tristate "Support enabling DDR self-refresh modes"
+	help
+	 Provides a sysfs interface for setting the self-refresh timeout
+	 value on Broadcom STB memory controllers.
+
+endif # SOC_BRCMSTB
+
 endmenu
