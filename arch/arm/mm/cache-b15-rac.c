@@ -234,22 +234,27 @@ static void b15_rac_hotplug_end(void)
  * we would want to consider disabling it as early as possible to benefit the
  * other active CPUs.
  */
+static int b15_rac_cpu_dying(unsigned int cpu)
+{
+	spin_lock(&rac_lock);
+
+	b15_rac_hotplug_start();
+
+	spin_unlock(&rac_lock);
+
+	return 0;
+}
+
 static int b15_rac_cpu_notify(struct notifier_block *self,
 			      unsigned long action, void *hcpu)
 {
 	action &= ~CPU_TASKS_FROZEN;
 
-	if (action != CPU_DYING && action != CPU_DOWN_FAILED &&
-	    action != CPU_DEAD)
+	if (action != CPU_DOWN_FAILED && action != CPU_DEAD)
 		return NOTIFY_OK;
 
 	spin_lock(&rac_lock);
 	switch (action) {
-	/* called on the dying CPU, exactly what we want */
-	case CPU_DYING:
-		b15_rac_hotplug_start();
-		break;
-
 	/* called on a non-dying CPU, what we want too */
 	case CPU_DOWN_FAILED:
 	case CPU_DEAD:
@@ -327,6 +332,9 @@ static int __init b15_rac_init(void)
 	}
 
 #ifdef CONFIG_HOTPLUG_CPU
+	cpuhp_setup_state_nocalls(CPUHP_AP_ARM_B15_STARTING,
+				  "AP_ARM_B15_STARTING",
+				  NULL, b15_rac_cpu_dying);
 	ret = register_cpu_notifier(&b15_rac_cpu_nb);
 	if (ret) {
 		pr_err("failed to register notifier block\n");
