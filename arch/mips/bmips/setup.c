@@ -110,6 +110,20 @@ static void bcm6368_quirks(void)
 	bcm63xx_fixup_cpu1();
 }
 
+static void bmips5000_pref30_quirk(void)
+{
+	__asm__ __volatile__(
+	"	li	$8, 0x5a455048\n"
+	"	.word	0x4088b00f\n"	/* mtc0 $8, $22, 15 */
+	"	nop; nop; nop\n"
+	"	.word	0x4008b008\n"	/* mfc0 $8, $22, 8 */
+	/* disable "pref 30" on buggy CPUs */
+	"	lui	$9, 0x0800\n"
+	"	or	$8, $9\n"
+	"	.word	0x4088b008\n"	/* mtc0 $8, $22, 8 */
+	: : : "$8", "$9");
+}
+
 static const struct bmips_quirk bmips_quirk_list[] = {
 	{ "brcm,bcm3368",		&bcm6358_quirks			},
 	{ "brcm,bcm3384-viper",		&bcm3384_viper_quirks		},
@@ -120,6 +134,9 @@ static const struct bmips_quirk bmips_quirk_list[] = {
 	{ "brcm,bcm6368",		&bcm6368_quirks			},
 	{ "brcm,bcm63168",		&bcm6368_quirks			},
 	{ "brcm,bcm63268",		&bcm6368_quirks			},
+	{ "brcm,bcm7344",		&bmips5000_pref30_quirk		},
+	{ "brcm,bcm7346",		&bmips5000_pref30_quirk		},
+	{ "brcm,bcm7425",		&bmips5000_pref30_quirk		},
 	{ },
 };
 
