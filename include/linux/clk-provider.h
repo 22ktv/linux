@@ -32,6 +32,7 @@
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
 /* duty cycle call may be forwarded to the parent clock */
 #define CLK_DUTY_CYCLE_PARENT	BIT(13)
+#define CLK_IS_SW		BIT(14) /* sw clk, multiple active parents */
 
 struct clk;
 struct clk_hw;
@@ -1020,12 +1021,18 @@ void clk_hw_unregister_fractional_divider(struct clk_hw *hw);
  *	used for the multiplier register.  Setting this flag makes the register
  *	accesses big endian.
  */
+struct clk_mult_table {
+	unsigned int	val;
+	unsigned int	mult;
+};
+
 struct clk_multiplier {
 	struct clk_hw	hw;
 	void __iomem	*reg;
 	u8		shift;
 	u8		width;
 	u8		flags;
+	const struct clk_mult_table	*table;
 	spinlock_t	*lock;
 };
 
