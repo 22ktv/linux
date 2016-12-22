@@ -40,6 +40,7 @@ static int enable_refcnt;
 static HLIST_HEAD(clk_root_list);
 static HLIST_HEAD(clk_orphan_list);
 static LIST_HEAD(clk_notifier_list);
+static HLIST_HEAD(clk_sw_list);
 
 /***    private data structures    ***/
 
@@ -701,7 +702,14 @@ static void clk_core_unprepare(struct clk_core *core)
 	clk_pm_runtime_put(core);
 
 	trace_clk_unprepare_complete(core);
-	clk_core_unprepare(core->parent);
+	if (core->flags & CLK_IS_SW) {
+		int i;
+
+		for (i = 0; i < core->num_parents; i++)
+			clk_core_unprepare(core->parents[i]);
+	} else {
+		clk_core_unprepare(core->parent);
+	}
 }
 
 static void clk_core_unprepare_lock(struct clk_core *core)
@@ -745,7 +753,20 @@ static int clk_core_prepare(struct clk_core *core)
 		if (ret)
 			return ret;
 
-		ret = clk_core_prepare(core->parent);
+		if (core->flags & CLK_IS_SW) {
+			int i, j;
+
+			for (i = 0; i < core->num_parents; i++) {
+				ret = clk_core_prepare(core->parents[i]);
+				if (ret) {
+					for (j = i - 1; j >= 0; j--)
+						clk_core_unprepare(core->parents[j]);
+					break;
+				}
+			}
+		} else {
+			ret = clk_core_prepare(core->parent);
+		}
 		if (ret)
 			goto runtime_put;
 
@@ -824,8 +845,14 @@ static void clk_core_disable(struct clk_core *core)
 		core->ops->disable(core->hw);
 
 	trace_clk_disable_complete_rcuidle(core);
+	if (core->flags & CLK_IS_SW) {
+		int i;
 
-	clk_core_disable(core->parent);
+		for (i = 0; i < core->num_parents; i++)
+			clk_core_disable(core->parents[i]);
+	} else {
+		clk_core_disable(core->parent);
+	}
 }
 
 static void clk_core_disable_lock(struct clk_core *core)
@@ -871,7 +898,20 @@ static int clk_core_enable(struct clk_core *core)
 		return -ESHUTDOWN;
 
 	if (core->enable_count == 0) {
-		ret = clk_core_enable(core->parent);
+		if (core->flags & CLK_IS_SW) {
+			int i, j;
+
+			for (i = 0; i < core->num_parents && !ret; i++) {
+				ret = clk_core_enable(core->parents[i]);
+				if (ret) {
+					for (j = i - 1; j >= 0; j--)
+						clk_core_disable(core->parents[j]);
+					break;
+				}
+			}
+		} else {
+			ret = clk_core_enable(core->parent);
+		}
 
 		if (ret)
 			return ret;
@@ -2884,6 +2924,9 @@ static int __clk_core_init(struct clk_core *core)
 		core->orphan = core->parent->orphan;
 	} else if (!core->num_parents) {
 		hlist_add_head(&core->child_node, &clk_root_list);
+		core->orphan = false;
+	} else if (core->flags & CLK_IS_SW) {
+		hlist_add_head(&core->child_node, &clk_sw_list);
 		core->orphan = false;
 	} else {
 		hlist_add_head(&core->child_node, &clk_orphan_list);

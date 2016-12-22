@@ -37,6 +37,7 @@
 #define CLK_IS_CRITICAL		BIT(11) /* do not gate, ever */
 /* parents need enable during gate/ungate, set rate and re-parent */
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
+#define CLK_IS_SW		BIT(13) /* sw clk, multiple active parents */
 
 struct clk;
 struct clk_hw;
@@ -618,12 +619,18 @@ void clk_hw_unregister_fractional_divider(struct clk_hw *hw);
  * CLK_MULTIPLIER_ROUND_CLOSEST - Makes the best calculated divider to be
  *	rounded to the closest integer instead of the down one.
  */
+struct clk_mult_table {
+	unsigned int	val;
+	unsigned int	mult;
+};
+
 struct clk_multiplier {
 	struct clk_hw	hw;
 	void __iomem	*reg;
 	u8		shift;
 	u8		width;
 	u8		flags;
+	const struct clk_mult_table	*table;
 	spinlock_t	*lock;
 };
 
