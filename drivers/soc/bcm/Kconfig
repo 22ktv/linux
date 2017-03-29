@@ -59,6 +59,10 @@ config BRCMSTB_SRPD
 	 Provides a sysfs interface for setting the self-refresh timeout
 	 value on Broadcom STB memory controllers.
 
+config BRCMSTB_WKTMR
+	tristate "Support wake-up timer"
+	default BRCMSTB_PM
+
 endif # SOC_BRCMSTB
 
 endmenu
