@@ -488,6 +488,16 @@ config PHY_CYGNUS_PCIE
 	  Enable this to support the Broadcom Cygnus PCIe PHY.
 	  If unsure, say N.
 
+config BRCM_USB_PHY
+	tristate "Broadcom USB PHY driver"
+	depends on OF && USB && ARCH_BRCMSTB
+	select GENERIC_PHY
+	default y
+	help
+	  Enable this to support the Broadcom USB PHY on
+	  Broadcom STB SoCs.
+	  If unsure, say Y.
+
 source "drivers/phy/tegra/Kconfig"
 
 config PHY_NS2_PCIE
