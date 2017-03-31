@@ -11,7 +11,7 @@ config RASPBERRYPI_POWER
 
 config SOC_BRCMSTB
 	bool "Broadcom STB SoC drivers"
-	depends on ARM
+	depends on ARM || ARM64 || BMIPS_GENERIC
 	select SOC_BUS
 	help
 	  Enables drivers for the Broadcom Set-Top Box (STB) series of chips.
@@ -26,7 +26,18 @@ config BRCMSTB_PM
 	bool "Support suspend/resume for STB platforms"
 	default y
 	depends on PM
-	depends on ARM && ARCH_BRCMSTB
+	depends on ARCH_BRCMSTB || BMIPS_GENERIC
+
+config BRCMSTB_PM_DEBUG
+	bool "Add debugfs interface for STB suspend/resume driver"
+	default y
+	depends on BRCMSTB_PM && PM_DEBUG && DEBUG_FS
+	help
+	  This option enables debugfs support for the STB suspend/resume
+	  driver. Specifically, for memory regions to be included or excluded
+	  from hashing.
+
+	  If you are unsure, choose Y here.
 
 endif # SOC_BRCMSTB
 
