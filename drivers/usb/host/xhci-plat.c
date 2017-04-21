@@ -20,6 +20,10 @@
 #include <linux/slab.h>
 #include <linux/acpi.h>
 
+#ifdef CONFIG_ARCH_BRCMSTB
+#include <linux/soc/brcmstb/brcmstb.h>
+#endif
+
 #include "xhci.h"
 #include "xhci-plat.h"
 #include "xhci-mvebu.h"
@@ -235,6 +239,14 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))
 		xhci->quirks |= XHCI_BROKEN_PORT_PED;
 
+	if (device_property_read_bool(&pdev->dev, "quirk-broken-streams"))
+		xhci->quirks |= XHCI_BROKEN_STREAMS;
+
+#ifdef CONFIG_ARCH_BRCMSTB
+	if (BRCM_ID(brcmstb_get_family_id()) == 0x7439)
+		xhci->quirks |= XHCI_BROKEN_STREAMS;
+#endif
+
 	hcd->usb_phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);
@@ -251,7 +263,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_usb_phy;
 
-	if (HCC_MAX_PSA(xhci->hcc_params) >= 4)
+	if (!(xhci->quirks & XHCI_BROKEN_STREAMS) &&
+			HCC_MAX_PSA(xhci->hcc_params) >= 4)
 		xhci->shared_hcd->can_do_streams = 1;
 
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
