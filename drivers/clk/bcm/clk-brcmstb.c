@@ -354,6 +354,7 @@ static void __init of_brcmstb_clk_gate_setup(struct device_node *node)
 	int ret;
 	bool read_only = false;
 	bool inhibit_disable = false;
+	unsigned long flags = 0;
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 	parent_name = of_clk_get_parent_name(node, 0);
@@ -379,7 +380,10 @@ static void __init of_brcmstb_clk_gate_setup(struct device_node *node)
 	if (of_property_read_bool(node, "brcm,inhibit-disable"))
 		inhibit_disable = true;
 
-	clk = brcm_clk_gate_register(NULL, clk_name, parent_name, 0, reg,
+	if (of_property_read_bool(node, "brcm,set-rate-parent"))
+		flags |= CLK_SET_RATE_PARENT;
+
+	clk = brcm_clk_gate_register(NULL, clk_name, parent_name, flags, reg,
 				     (u8) bit_idx, clk_gate_flags, delay,
 				     &lock, read_only, inhibit_disable);
 	if (!IS_ERR(clk)) {
@@ -498,6 +502,141 @@ static void __init of_brcmstb_clk_sw_setup(struct device_node *node)
 }
 CLK_OF_DECLARE(brcmstb_clk_sw, "brcm,brcmstb-sw-clk",
 		of_brcmstb_clk_sw_setup);
+
+#define to_clk_mux(_hw) container_of(_hw, struct clk_mux, hw)
+
+static struct clk_ops clk_mux_ops_brcm = {
+	.determine_rate = __clk_mux_determine_rate_closest,
+};
+
+static struct clk *clk_register_mux_table_brcm(struct device *dev,
+		const char *name, const char **parent_names, u8 num_parents,
+		unsigned long flags, void __iomem *reg, u8 shift, u32 mask,
+		u8 clk_mux_flags, u32 *table, spinlock_t *lock)
+{
+	struct clk_mux *mux;
+	struct clk *clk;
+	struct clk_init_data init;
+	u8 width = 0;
+
+	if (clk_mux_ops_brcm.get_parent == NULL) {
+		/* we would like to set these at compile time but
+		 * that is not possible */
+		clk_mux_ops_brcm.get_parent = clk_mux_ops.get_parent;
+		clk_mux_ops_brcm.set_parent = clk_mux_ops.set_parent;
+	}
+
+	if (clk_mux_flags & CLK_MUX_HIWORD_MASK) {
+		width = fls(mask) - ffs(mask) + 1;
+		if (width + shift > 16) {
+			pr_err("mux value exceeds LOWORD field\n");
+			return ERR_PTR(-EINVAL);
+		}
+	}
+
+	/* allocate the mux */
+	mux = kzalloc(sizeof(struct clk_mux), GFP_KERNEL);
+	if (!mux)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = name;
+	if (clk_mux_flags & CLK_MUX_READ_ONLY)
+		init.ops = &clk_mux_ro_ops;
+	else
+		init.ops = &clk_mux_ops_brcm;
+	init.flags = flags | CLK_IS_BASIC;
+	init.parent_names = parent_names;
+	init.num_parents = num_parents;
+
+	/* struct clk_mux assignments */
+	mux->reg = reg;
+	mux->shift = shift;
+	mux->mask = mask;
+	mux->flags = clk_mux_flags;
+	mux->lock = lock;
+	mux->table = table;
+	mux->hw.init = &init;
+
+	clk = clk_register(dev, &mux->hw);
+
+	if (IS_ERR(clk))
+		kfree(mux);
+
+	return clk;
+}
+
+/**
+ * of_mux_clk_setup_brcm() - Setup function for simple mux rate clock
+ */
+void of_mux_clk_setup_brcm(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	void __iomem *reg;
+	int num_parents;
+	const char **parent_names;
+	int i;
+	u8 clk_mux_flags = 0;
+	u32 mask = 0;
+	u32 shift = 0;
+
+	of_property_read_string(node, "clock-output-names", &clk_name);
+
+	num_parents = of_clk_get_parent_count(node);
+	if (num_parents < 1) {
+		pr_err("%s: mux-clock %s must have parent(s)\n",
+				__func__, node->name);
+		return;
+	}
+
+	parent_names = kzalloc((sizeof(char *) * num_parents),
+			GFP_KERNEL);
+
+	if (!parent_names) {
+		pr_err("%s: could not allocate parent names\n", __func__);
+		return;
+	}
+
+	for (i = 0; i < num_parents; i++)
+		parent_names[i] = of_clk_get_parent_name(node, i);
+
+	reg = of_iomap(node, 0);
+	if (!reg) {
+		pr_err("%s: no memory mapped for property reg\n", __func__);
+		goto fail;
+	}
+
+	if (of_property_read_u32(node, "bit-mask", &mask)) {
+		pr_err("%s: missing bit-mask property for %s\n",
+		       __func__, node->name);
+		goto fail;
+	}
+
+	if (of_property_read_u32(node, "bit-shift", &shift)) {
+		shift = __ffs(mask);
+		pr_debug("%s: bit-shift property defaults to 0x%x for %s\n",
+				__func__, shift, node->name);
+	}
+
+	if (of_property_read_bool(node, "index-starts-at-one"))
+		clk_mux_flags |= CLK_MUX_INDEX_ONE;
+
+	if (of_property_read_bool(node, "hiword-mask"))
+		clk_mux_flags |= CLK_MUX_HIWORD_MASK;
+
+	clk = clk_register_mux_table_brcm(NULL, clk_name, parent_names,
+			num_parents, 0, reg, shift,
+			mask, clk_mux_flags, NULL, NULL);
+
+	if (!IS_ERR(clk))
+		of_clk_add_provider(node, of_clk_src_simple_get, clk);
+
+	return;
+fail:
+	kfree(parent_names);
+}
+EXPORT_SYMBOL_GPL(of_mux_clk_setup_brcm);
+CLK_OF_DECLARE(mux_clk, "brcm,mux-clock", of_mux_clk_setup_brcm);
 
 static struct clk_div_table *of_clk_get_div_table(struct device_node *node)
 {
