@@ -66,3 +66,15 @@ config PHY_BRCM_SATA
 	help
 	  Enable this to support the Broadcom SATA PHY.
 	  If unsure, say N.
+
+config PHY_BRCM_USB
+	tristate "Broadcom STB USB PHY driver"
+	depends on ARCH_BRCMSTB || BMIPS_GENERIC || COMPILE_TEST
+	depends on OF
+	select GENERIC_PHY
+	default ARCH_BRCMSTB || BMIPS_GENERIC
+	help
+	  Enable this to support the Broadcom STB USB PHY.
+	  This driver is required by the USB XHCI, EHCI and OHCI
+	  drivers.
+	  If unsure, say N.
