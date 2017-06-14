@@ -274,8 +274,13 @@ static int brcm_usb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
-	of_property_read_u32(dn, "brcm,ipp", &priv->ini.ipp);
-	of_property_read_u32(dn, "brcm,ioc", &priv->ini.ioc);
+	if (of_property_read_bool(dn, "ipp") || of_property_read_bool(dn, "ioc")) {
+		of_property_read_u32(dn, "ipp", &priv->ini.ipp);
+		of_property_read_u32(dn, "ioc", &priv->ini.ioc);
+	} else {
+		of_property_read_u32(dn, "brcm,ipp", &priv->ini.ipp);
+		of_property_read_u32(dn, "brcm,ioc", &priv->ini.ioc);
+	}
 
 	priv->ini.mode = USB_CTLR_MODE_HOST;
 	err = of_property_read_string(dn, "dr_mode", &mode);
