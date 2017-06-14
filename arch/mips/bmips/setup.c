@@ -233,7 +233,7 @@ void __init plat_time_init(void)
 
 	mips_hpt_frequency = freq;
 
-	np = of_find_node_by_name(NULL, "timers");
+	np = of_find_node_by_name(NULL, "timer");
 	if (np) {
 		void __iomem *timers_base;
 
