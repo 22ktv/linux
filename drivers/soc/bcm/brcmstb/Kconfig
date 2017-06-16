@@ -12,4 +12,18 @@ config BRCMSTB_SRPD
 	 Provides a sysfs interface for setting the self-refresh timeout
 	 value on Broadcom STB memory controllers.
 
+config BRCMSTB_BMEM
+	bool "Enable BMEM reserved A/V memory"
+	depends on HAVE_MEMBLOCK && (ARCH_BRCMSTB || BMIPS_GENERIC)
+	help
+	  The A/V peripherals (managed by the PI/Nexus middleware) require
+	  large, contiguous memory regions to be set aside at boot time.  This
+	  option sets those up in a default config that reserves most of
+	  memory.  Also allows the user to manually define region sizes and
+	  locations using the 'bmem' command line param.  Allows for O_DIRECT
+	  I/O using these regions, mmap() from user programs, and
+	  ioremap() from kernel drivers.
+
+	  If you are planning to use Broadcom middleware, choose Y here.
+
 endif # SOC_BRCMSTB
