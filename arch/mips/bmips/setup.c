@@ -17,7 +17,6 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
-#include <linux/of_address.h>
 #include <linux/libfdt.h>
 #include <linux/smp.h>
 #include <asm/addrspace.h>
@@ -183,40 +182,6 @@ void __init plat_time_init(void)
 {
 	struct device_node *np;
 	u32 freq;
-
-	np = of_find_node_by_name(NULL, "timers");
-	if (np) {
-		void __iomem *timer_base;
-
-		timer_base = of_iomap(np, 0);
-		if (timer_base) {
-			u32 sample_period = 50;
-
-			__raw_writel(0, timer_base + 0x14);
-			__raw_readl(timer_base + 0x14);
-
-			__raw_writel(__raw_readl(timer_base) | BIT(3),
-				     timer_base);
-			__raw_readl(timer_base);
-
-			__raw_writel(0xc0000000 | (27000000 / sample_period),
-				     timer_base + 0x8);
-
-			write_c0_count(0);
-
-			while ((__raw_readl(timer_base) & 1) == 0)
-				;
-
-			freq = read_c0_count();
-
-			__raw_writel(0, timer_base + 0x8);
-
-			iounmap(timer_base);
-
-			mips_hpt_frequency = (freq * sample_period);
-			return;
-		}
-	}
 
 	np = of_find_node_by_name(NULL, "cpus");
 	if (!np)
