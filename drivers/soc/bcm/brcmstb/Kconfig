@@ -1,0 +1,9 @@
+if SOC_BRCMSTB
+
+config BRCMSTB_PM
+        bool "Support suspend/resume for STB platforms"
+        default y
+	depends on ARM || BMIPS_GENERIC
+        depends on PM
+
+endif # SOC_BRCMSTB
