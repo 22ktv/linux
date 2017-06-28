@@ -138,10 +138,12 @@ static int brcmstb_waketmr_settime(struct device *dev,
 				   struct rtc_time *tm)
 {
 	struct brcmstb_waketmr *timer = dev_get_drvdata(dev);
-	unsigned long sec;
-	int ret;
+	time64_t sec;
 
-	rtc_tm_to_time(tm, &sec);
+	sec = rtc_tm_to_time64(tm);
+
+	if (sec > U32_MAX || sec < 0)
+		return -EINVAL;
 
 	writel_relaxed(sec, timer->base + BRCMSTB_WKTMR_COUNTER);
 
@@ -152,14 +154,14 @@ static int brcmstb_waketmr_getalarm(struct device *dev,
 				    struct rtc_wkalrm *alarm)
 {
 	struct brcmstb_waketmr *timer = dev_get_drvdata(dev);
-	unsigned long sec;
+	time64_t sec;
 	u32 reg;
 
 	sec = readl_relaxed(timer->base + BRCMSTB_WKTMR_ALARM);
 	if (sec != 0) {
 		/* Alarm is enabled */
 		alarm->enabled = 1;
-		rtc_time_to_tm(sec, &alarm->time);
+		rtc_time64_to_tm(sec, &alarm->time);
 	}
 
 	reg = readl_relaxed(timer->base + BRCMSTB_WKTMR_EVENT);
@@ -172,12 +174,15 @@ static int brcmstb_waketmr_setalarm(struct device *dev,
 				     struct rtc_wkalrm *alarm)
 {
 	struct brcmstb_waketmr *timer = dev_get_drvdata(dev);
-	unsigned long sec;
+	time64_t sec;
 
 	if (alarm->enabled)
-		rtc_tm_to_time(&alarm->time, &sec);
+		sec = rtc_tm_to_time64(&alarm->time);
 	else
 		sec = 0;
+
+	if (sec > U32_MAX || sec < 0)
+		return -EINVAL;
 
 	brcmstb_waketmr_set_alarm(timer, sec);
 
