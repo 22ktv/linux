@@ -348,6 +348,11 @@ static int brcm_usb_phy_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dn, "brcm,has_eohci"))
 		priv->has_eohci = true;
 
+	if (!of_property_read_bool(dn, "has_xhci_only") && of_property_read_bool(dn, "has_xhci")) {
+		priv->has_eohci = true;
+		priv->has_xhci = true;
+	}
+
 	err = brcm_usb_phy_dvr_init(dev, priv, dn);
 	if (err)
 		return err;
