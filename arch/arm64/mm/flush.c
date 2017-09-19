@@ -24,6 +24,18 @@
 #include <asm/cacheflush.h>
 #include <asm/cache.h>
 #include <asm/tlbflush.h>
+#ifdef CONFIG_CACHE_B53_RAC
+#include <asm/cache-b53-rac.h>
+#endif
+
+void flush_cache_all(void)
+{
+#ifdef CONFIG_CACHE_B53_RAC
+	b53_rac_flush_all();
+#endif
+	v8_flush_cache_all();
+}
+EXPORT_SYMBOL(flush_cache_all);
 
 void sync_icache_aliases(void *kaddr, unsigned long len)
 {
