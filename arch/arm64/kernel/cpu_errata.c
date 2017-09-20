@@ -389,6 +389,12 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.capability = ARM64_WORKAROUND_845719,
 		ERRATA_MIDR_REV_RANGE(MIDR_CORTEX_A53, 0, 0, 4),
 	},
+	{
+	/* Brahma-B53 r0p[0] */
+		.desc = "ARM erratum 845719",
+		.capability = ARM64_WORKAROUND_845719,
+		MIDR_RANGE(MIDR_BRAHMA_B53, 0x00, 0x00),
+	},
 #endif
 #ifdef CONFIG_CAVIUM_ERRATUM_23154
 	{
