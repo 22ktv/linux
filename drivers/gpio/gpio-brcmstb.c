@@ -363,7 +363,9 @@ static int brcmstb_gpio_irq_setup(struct platform_device *pdev,
 	bank->irq_chip.irq_set_type = brcmstb_gpio_irq_set_type;
 
 	/* Ensures that all non-wakeup IRQs are disabled at suspend */
-	bank->irq_chip.flags = IRQCHIP_MASK_ON_SUSPEND;
+	/* and that interrupts are masked when changing their type  */
+	bank->irq_chip.flags = IRQCHIP_MASK_ON_SUSPEND |
+			       IRQCHIP_SET_TYPE_MASKED;
 
 	if (IS_ENABLED(CONFIG_PM_SLEEP) && !priv->parent_wake_irq &&
 			of_property_read_bool(np, "wakeup-source")) {
