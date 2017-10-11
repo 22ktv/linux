@@ -21,10 +21,36 @@
 /* Broadcom PCIE Offsets */
 #define PCIE_INTR2_CPU_BASE		0x4300
 
+struct brcm_msi;
+struct brcm_info;
+struct platform_device;
+
 dma_addr_t brcm_to_pci(dma_addr_t addr);
 dma_addr_t brcm_to_cpu(dma_addr_t addr);
 
 extern struct notifier_block brcmstb_platform_nb;
+
+#ifdef CONFIG_PCI_BRCMSTB_MSI
+int brcm_msi_probe(struct platform_device *pdev, struct brcm_info *info);
+void brcm_msi_set_regs(struct brcm_msi *chip);
+void brcm_msi_remove(struct brcm_msi *chip);
+#else
+static inline int brcm_msi_probe(struct platform_device *pdev,
+				 struct brcm_info *info)
+{
+	return -ENODEV;
+}
+
+static inline void brcm_msi_set_regs(struct brcm_msi *chip) {}
+static inline void brcm_msi_remove(struct brcm_msi *chip) {}
+#endif /* CONFIG_PCI_BRCMSTB_MSI */
+
+struct brcm_info {
+	int rev;
+	u64 msi_target_addr;
+	void __iomem *base;
+	struct brcm_msi *msi;
+};
 
 #define BRCMSTB_ERROR_CODE	(~(dma_addr_t)0x0)
 

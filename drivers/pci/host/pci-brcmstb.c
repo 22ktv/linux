@@ -22,6 +22,7 @@
 #include <linux/list.h>
 #include <linux/log2.h>
 #include <linux/module.h>
+#include <linux/msi.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
@@ -327,10 +328,13 @@ struct brcm_pcie {
 	int			num_out_wins;
 	bool			ssc;
 	int			gen;
+	u64			msi_target_addr;
 	struct brcm_window	out_wins[BRCM_NUM_PCI_OUT_WINS];
 	struct list_head	resources;
 	struct device		*dev;
 	struct list_head	pwr_supplies;
+	struct brcm_msi		*msi;
+	bool			msi_internal;
 	unsigned int		rev;
 	unsigned int		num;
 	bool			bridge_setup_done;
@@ -781,6 +785,7 @@ static void brcm_pcie_setup_prep(struct brcm_pcie *pcie)
 	void __iomem *base = pcie->base;
 	unsigned int scb_size_val;
 	u64 rc_bar2_size = 0, rc_bar2_offset = 0, total_mem_size = 0;
+	u64 msi_target_addr;
 	u32 tmp, burst;
 	int i;
 
@@ -824,14 +829,17 @@ static void brcm_pcie_setup_prep(struct brcm_pcie *pcie)
 	/* The PCI host controller by design must set the inbound
 	 * viewport to be a contiguous arrangement of all of the
 	 * system's memory.  In addition, its size mut be a power of
-	 * two.  To further complicate matters, the viewport must
-	 * start on a pci-address that is aligned on a multiple of its
-	 * size.  If a portion of the viewport does not represent
-	 * system memory -- e.g. 3GB of memory requires a 4GB viewport
-	 * -- we can map the outbound memory in or after 3GB and even
-	 * though the viewport will overlap the outbound memory the
-	 * controller will know to send outbound memory downstream and
-	 * everything else upstream.
+	 * two.  Further, the MSI target address must NOT be placed
+	 * inside this region, as the decoding logic will consider its
+	 * address to be inbound memory traffic.  To further
+	 * complicate matters, the viewport must start on a
+	 * pci-address that is aligned on a multiple of its size.
+	 * If a portion of the viewport does not represent system
+	 * memory -- e.g. 3GB of memory requires a 4GB viewport --
+	 * we can map the outbound memory in or after 3GB and even
+	 * though the viewport will overlap the outbound memory
+	 * the controller will know to send outbound memory downstream
+	 * and everything else upstream.
 	 */
 	rc_bar2_size = roundup_pow_of_two_64(total_mem_size);
 
@@ -846,6 +854,14 @@ static void brcm_pcie_setup_prep(struct brcm_pcie *pcie)
 		if (total_mem_size <= 0xc0000000ULL &&
 		    rc_bar2_size <= 0x100000000ULL) {
 			rc_bar2_offset = 0;
+			/* If the viewport is less then 4GB we can fit
+			 * the MSI target address under 4GB. Otherwise
+			 * put it right below 64GB.
+			 */
+			msi_target_addr =
+				(rc_bar2_size == 0x100000000ULL)
+				? BRCM_MSI_TARGET_ADDR_GT_4GB
+				: BRCM_MSI_TARGET_ADDR_LT_4GB;
 		} else {
 			/* The system memory is 4GB or larger so we
 			 * cannot start the inbound region at location
@@ -854,15 +870,24 @@ static void brcm_pcie_setup_prep(struct brcm_pcie *pcie)
 			 * start it at the 1x multiple of its size
 			 */
 			rc_bar2_offset = rc_bar2_size;
-		}
 
+			/* Since we are starting the viewport at 4GB or
+			 * higher, put the MSI target address below 4GB
+			 */
+			msi_target_addr = BRCM_MSI_TARGET_ADDR_LT_4GB;
+		}
 	} else {
 		/* Set simple configuration based on memory sizes
 		 * only.  We always start the viewport at address 0,
 		 * and set the MSI target address accordingly.
 		 */
 		rc_bar2_offset = 0;
+
+		msi_target_addr = (rc_bar2_size >= 0x100000000ULL)
+			? BRCM_MSI_TARGET_ADDR_GT_4GB
+			: BRCM_MSI_TARGET_ADDR_LT_4GB;
 	}
+	pcie->msi_target_addr = msi_target_addr;
 
 	tmp = lower_32_bits(rc_bar2_offset);
 	tmp = INSERT_FIELD(tmp, PCIE_MISC_RC_BAR2_CONFIG_LO, SIZE,
@@ -1071,6 +1096,9 @@ static int brcm_pcie_resume(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (pcie->msi && pcie->msi_internal)
+		brcm_msi_set_regs(pcie->msi);
+
 	pcie->suspended = false;
 
 	return 0;
@@ -1134,6 +1162,7 @@ MODULE_DEVICE_TABLE(of, brcm_pci_match);
 
 static void _brcm_pcie_remove(struct brcm_pcie *pcie)
 {
+	brcm_msi_remove(pcie->msi);
 	turn_off(pcie);
 	clk_disable_unprepare(pcie->clk);
 	clk_put(pcie->clk);
@@ -1143,7 +1172,7 @@ static void _brcm_pcie_remove(struct brcm_pcie *pcie)
 
 static int brcm_pcie_probe(struct platform_device *pdev)
 {
-	struct device_node *dn = pdev->dev.of_node;
+	struct device_node *dn = pdev->dev.of_node, *msi_dn;
 	const struct of_device_id *of_id;
 	const struct pcie_cfg_data *data;
 	int i, ret;
@@ -1258,6 +1287,29 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	ret = brcm_pcie_setup_bridge(pcie);
 	if (ret)
 		goto fail;
+
+	msi_dn = of_parse_phandle(pcie->dn, "msi-parent", 0);
+	/* Use the internal MSI if no msi-parent property */
+	if (!msi_dn)
+		msi_dn = pcie->dn;
+
+	if (IS_ENABLED(CONFIG_PCI_MSI) && pci_msi_enabled()
+	    && msi_dn == pcie->dn) {
+		struct brcm_info info;
+
+		info.rev = pcie->rev;
+		info.msi_target_addr = pcie->msi_target_addr;
+		info.base = pcie->base;
+
+		ret = brcm_msi_probe(pdev, &info);
+		if (ret)
+			dev_err(pcie->dev,
+				"probe of internal MSI failed: %d)", ret);
+		else
+			pcie->msi_internal = true;
+
+		pcie->msi = info.msi;
+	}
 
 	list_splice_init(&pcie->resources, &bridge->windows);
 	bridge->dev.parent = &pdev->dev;
