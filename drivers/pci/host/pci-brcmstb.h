@@ -21,6 +21,13 @@
 /* Broadcom PCIE Offsets */
 #define PCIE_INTR2_CPU_BASE		0x4300
 
+dma_addr_t brcm_to_pci(dma_addr_t addr);
+dma_addr_t brcm_to_cpu(dma_addr_t addr);
+
+extern struct notifier_block brcmstb_platform_nb;
+
+#define BRCMSTB_ERROR_CODE	(~(dma_addr_t)0x0)
+
 #if defined(CONFIG_MIPS)
 /* Broadcom MIPs HW implicitly does the swapping if necessary */
 #define bcm_readl(a)		__raw_readl(a)
