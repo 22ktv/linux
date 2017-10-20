@@ -45,6 +45,12 @@ config ARM_BRCMSTB_CPUFREQ
 	  has AVS firmware with support for frequency and voltage scaling,
 	  say N here and enable ARM_BRCMSTB_AVS_CPUFREQ instead.
 
+config ARM_BRCMSTB_CPUFREQ_OLD_DT_COMPAT
+	bool
+	depends on ARM_BRCMSTB_CPUFREQ
+	# We can't turn this on for modules, as it'll lead to a build error.
+	default y if ARM_BRCMSTB_CPUFREQ != m
+
 config ARM_DT_BL_CPUFREQ
 	tristate "Generic probing via DT for ARM big LITTLE CPUfreq driver"
 	depends on ARM_BIG_LITTLE_CPUFREQ && OF
