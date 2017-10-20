@@ -68,7 +68,47 @@ static int count_memory_controllers(void)
 	return i;
 }
 
-static void get_frequencies(const struct cpufreq_policy *policy,
+/*
+ * This is a little ugly, but we need it to maintain backwards compatibility.
+ * When this driver was first released internally, it did not require clock
+ * references to be present in the brcm,brcmstb-cpu-clk-div node. However, to
+ * meet upstream criteria, it was necessary to add those references, which allow
+ * us to use devm_clk_get() to look up clocks. Using __clk_lookup() was not
+ * permitted by upstream maintainers. Also, using __clk_lookup() leads to a
+ * linker error when this driver is compiled as a module.
+ *
+ * To enable the driver to function with old DT blobs without those clock
+ * references, we fall back to calling __clk_lookup() if devm_clk_get() fails.
+ * Since the use of __clk_lookup() prevents the driver from being compiled as
+ * module, we also add the capability to turn off the call to __clk_lookup() via
+ * config option.
+ */
+
+#ifdef CONFIG_ARM_BRCMSTB_CPUFREQ_OLD_DT_COMPAT
+
+static struct clk *clock_lookup(struct clk *clk, const char *name)
+{
+	/* If the clock has already been looked up successfully, return it. */
+	if (likely(!IS_ERR(clk)))
+		return clk;
+
+	clk = __clk_lookup(name);
+	if (!clk)
+		return ERR_PTR(-ENODEV);
+
+	return clk;
+}
+
+#else
+
+static struct clk *clock_lookup(struct clk *clk, const char *name)
+{
+	return clk;
+}
+
+#endif /* !CONFIG_ARM_BRCMSTB_CPUFREQ_OLD_DT_COMPAT */
+
+static int get_frequencies(const struct cpufreq_policy *policy,
 			   unsigned int *vco_freq, unsigned int *cpu_freq,
 			   unsigned int *scb_freq)
 {
@@ -78,6 +118,8 @@ static void get_frequencies(const struct cpufreq_policy *policy,
 	*vco_freq = clk_get_rate(priv->ndiv_clk) / 1000;
 	*cpu_freq = clk_get_rate(priv->mdiv_clk) / 1000;
 	*scb_freq = clk_get_rate(priv->sw_scb_clk) / 1000;
+
+	return 0;
 }
 
 /*
@@ -125,9 +167,12 @@ brcmstb_get_freq_table(const struct cpufreq_policy *policy)
 	int num_memc, ret;
 	unsigned int i = 0;
 
+	ret = get_frequencies(policy, &vco_freq, &cpu_freq, &scb_freq);
+	if (ret)
+		return ERR_PTR(ret);
+
 	priv = policy->driver_data;
 	num_memc = count_memory_controllers();
-	get_frequencies(policy, &vco_freq, &cpu_freq, &scb_freq);
 
 	/* Calculate the initial mdiv value. We'll increment mdiv from here. */
 	init_mdiv = vco_freq / cpu_freq;
@@ -232,6 +277,16 @@ static int brcmstb_prepare_init(struct platform_device *pdev)
 	priv->ndiv_clk = devm_clk_get(dev, BRCMSTB_CLK_NDIV_INT);
 	priv->sw_scb_clk = devm_clk_get(dev, BRCMSTB_CLK_SW_SCB);
 
+	/*
+	 * Backward compatibility, so driver works with old DT blobs that don't
+	 * have references to the three clocks we need inside the
+	 * brcm,brcmstb-cpu-clk-div node. These calls can be configured via
+	 * Kconfig option to be no-ops.
+	 */
+	priv->mdiv_clk = clock_lookup(priv->mdiv_clk, BRCMSTB_CLK_MDIV_CH0);
+	priv->ndiv_clk = clock_lookup(priv->ndiv_clk, BRCMSTB_CLK_NDIV_INT);
+	priv->sw_scb_clk = clock_lookup(priv->sw_scb_clk, BRCMSTB_CLK_SW_SCB);
+
 	if (IS_ERR(priv->mdiv_clk))
 		return PTR_ERR(priv->mdiv_clk);
 	if (IS_ERR(priv->ndiv_clk))
@@ -288,8 +343,11 @@ static ssize_t show_brcmstb_num_memc(struct cpufreq_policy *policy, char *buf)
 static ssize_t show_brcmstb_freqs(struct cpufreq_policy *policy, char *buf)
 {
 	unsigned int vco_freq, cpu_freq, scb_freq;
+	int ret;
 
-	get_frequencies(policy, &vco_freq, &cpu_freq, &scb_freq);
+	ret = get_frequencies(policy, &vco_freq, &cpu_freq, &scb_freq);
+	if (ret)
+		return sprintf(buf, "<unknown>\n");
 
 	return sprintf(buf, "%u %u %u\n", vco_freq, cpu_freq, scb_freq);
 }
