@@ -60,6 +60,10 @@
 	status = "okay";
 };
 
+&watchdog {
+	status = "okay";
+};
+
 &enet0 {
 	status = "okay";
 };
@@ -121,5 +125,9 @@
 };
 
 &pcie {
+	status = "okay";
+};
+
+&waketimer {
 	status = "okay";
 };
