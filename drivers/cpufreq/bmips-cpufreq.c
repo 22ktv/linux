@@ -24,13 +24,25 @@
 #define BMIPS_CPUFREQ_PREFIX	"bmips"
 #define BMIPS_CPUFREQ_NAME	BMIPS_CPUFREQ_PREFIX "-cpufreq"
 
+/* We search for these compatible strings. */
+#define BMIPS_CPUFREQ		"brcm,bmips-cpufreq"
+
 #define TRANSITION_LATENCY	(25 * 1000)	/* 25 us */
 
 #define BMIPS5_CLK_DIV_SET_SHIFT	0x7
 #define BMIPS5_CLK_DIV_SHIFT		0x4
 #define BMIPS5_CLK_DIV_MASK		0xf
 
+#define BMIPS4_CLK_DIV_SHIFT		0x1d
+#define BMIPS4_CLK_DIV_MASK		0x7
+
+#define BMIPS3_CLK_DIV_SHIFT		0x17
+#define BMIPS3_CLK_DIV_MASK		0x7
+
 enum bmips_type {
+	BMIPS3300,
+	BMIPS4350,
+	BMIPS4380,
 	BMIPS5000,
 	BMIPS5200,
 };
@@ -50,12 +62,13 @@ struct cpufreq_compat {
 }
 
 static struct cpufreq_compat bmips_cpufreq_compat[] = {
+	BMIPS("brcm,bmips3300", BMIPS3300, 2, 3),
+	BMIPS("brcm,bmips4350", BMIPS4350, 2, 3),
+	BMIPS("brcm,bmips4380", BMIPS4380, 2, 3),
 	BMIPS("brcm,bmips5000", BMIPS5000, 8, 4),
 	BMIPS("brcm,bmips5200", BMIPS5200, 8, 4),
 	{ }
 };
-
-static struct cpufreq_compat *priv;
 
 static int htp_freq_to_cpu_freq(unsigned int clk_mult)
 {
@@ -66,16 +79,18 @@ static struct cpufreq_frequency_table *
 bmips_cpufreq_get_freq_table(const struct cpufreq_policy *policy)
 {
 	struct cpufreq_frequency_table *table;
+	struct cpufreq_compat *cc;
 	unsigned long cpu_freq;
 	int i;
 
-	cpu_freq = htp_freq_to_cpu_freq(priv->clk_mult);
+	cc = policy->driver_data;
+	cpu_freq = htp_freq_to_cpu_freq(cc->clk_mult);
 
-	table = kmalloc((priv->max_freqs + 1) * sizeof(*table), GFP_KERNEL);
+	table = kzalloc((cc->max_freqs + 1) * sizeof(*table), GFP_KERNEL);
 	if (!table)
 		return ERR_PTR(-ENOMEM);
 
-	for (i = 0; i < priv->max_freqs; i++) {
+	for (i = 0; i < cc->max_freqs; i++) {
 		table[i].frequency = cpu_freq / (1 << i);
 		table[i].driver_data = i;
 	}
@@ -86,10 +101,16 @@ bmips_cpufreq_get_freq_table(const struct cpufreq_policy *policy)
 
 static unsigned int bmips_cpufreq_get(unsigned int cpu)
 {
+	struct cpufreq_policy *policy;
+	struct cpufreq_compat *cc;
+	unsigned long freq, cpu_freq;
 	unsigned int div;
 	uint32_t mode;
 
-	switch (priv->bmips_type) {
+	policy = cpufreq_cpu_get(cpu);
+	cc = policy->driver_data;
+
+	switch (cc->bmips_type) {
 	case BMIPS5200:
 	case BMIPS5000:
 		mode = read_c0_brcm_mode();
@@ -99,15 +120,22 @@ static unsigned int bmips_cpufreq_get(unsigned int cpu)
 		div = 0;
 	}
 
-	return htp_freq_to_cpu_freq(priv->clk_mult) / (1 << div);
+	cpu_freq = htp_freq_to_cpu_freq(cc->clk_mult);
+	freq = cpu_freq / (1 << div);
+
+	return freq;
 }
 
 static int bmips_cpufreq_target_index(struct cpufreq_policy *policy,
 				      unsigned int index)
 {
-	unsigned int div = policy->freq_table[index].driver_data;
+	struct cpufreq_compat *cc;
+	unsigned int div;
 
-	switch (priv->bmips_type) {
+	cc = policy->driver_data;
+	div = policy->freq_table[index].driver_data;
+
+	switch (cc->bmips_type) {
 	case BMIPS5200:
 	case BMIPS5000:
 		change_c0_brcm_mode(BMIPS5_CLK_DIV_MASK << BMIPS5_CLK_DIV_SHIFT,
@@ -124,6 +152,7 @@ static int bmips_cpufreq_target_index(struct cpufreq_policy *policy,
 static int bmips_cpufreq_exit(struct cpufreq_policy *policy)
 {
 	kfree(policy->freq_table);
+	policy->freq_table = NULL;
 
 	return 0;
 }
@@ -132,6 +161,9 @@ static int bmips_cpufreq_init(struct cpufreq_policy *policy)
 {
 	struct cpufreq_frequency_table *freq_table;
 	int ret;
+
+	/* Store the compatibility data with the policy. */
+	policy->driver_data = cpufreq_get_driver_data();
 
 	freq_table = bmips_cpufreq_get_freq_table(policy);
 	if (IS_ERR(freq_table)) {
@@ -170,7 +202,7 @@ static int __init bmips_cpufreq_probe(void)
 		np = of_find_compatible_node(NULL, "cpu", cc->compatible);
 		if (np) {
 			of_node_put(np);
-			priv = cc;
+			bmips_cpufreq_driver.driver_data = cc;
 			break;
 		}
 	}
