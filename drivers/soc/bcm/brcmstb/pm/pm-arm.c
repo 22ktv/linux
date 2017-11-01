@@ -127,7 +127,11 @@ static int brcmstb_init_sram(struct device_node *dn)
 		return ret;
 
 	/* Uncached, executable remapping of SRAM */
+#ifdef CONFIG_ARM
 	sram = __arm_ioremap_exec(res.start, resource_size(&res), false);
+#else
+	sram = __ioremap(res.start, resource_size(&res), PAGE_KERNEL_EXEC);
+#endif
 	if (!sram)
 		return -ENOMEM;
 
@@ -398,7 +402,11 @@ noinline int brcmstb_pm_s3_finish(void)
 {
 	struct brcmstb_s3_params *params = ctrl.s3_params;
 	dma_addr_t params_pa = ctrl.s3_params_pa;
+#ifdef CONFIG_ARM
 	phys_addr_t reentry = virt_to_phys(&cpu_resume_arm);
+#else
+	phys_addr_t reentry = virt_to_phys(&cpu_resume);
+#endif
 	enum bsp_initiate_command cmd;
 	u32 flags;
 
@@ -456,21 +464,28 @@ noinline int brcmstb_pm_s3_finish(void)
 	return -EINTR;
 }
 
+#define SWAP_STACK(new_sp, saved_sp) \
+__asm__ __volatile__ ( \
+	 "mov	%[save], sp\n" \
+	 "mov	sp, %[new]\n" \
+	 : [save] "=&r" (saved_sp) \
+	 : [new] "r" (new_sp) \
+	)
+
 static int brcmstb_pm_do_s3(unsigned long sp)
 {
 	unsigned long save_sp;
 	int ret;
 
-	asm volatile (
-		"mov	%[save], sp\n"
-		"mov	sp, %[new]\n"
-		"bl	brcmstb_pm_s3_finish\n"
-		"mov	%[ret], r0\n"
-		"mov	%[new], sp\n"
-		"mov	sp, %[save]\n"
-		: [save] "=&r" (save_sp), [ret] "=&r" (ret)
-		: [new] "r" (sp)
-	);
+	/* Move to a new stack */
+	SWAP_STACK(sp, save_sp);
+
+	/* should not return */
+	ret = brcmstb_pm_s3_finish();
+
+	SWAP_STACK(save_sp, sp);
+
+	pr_err("Could not enter S3\n");
 
 	return ret;
 }
