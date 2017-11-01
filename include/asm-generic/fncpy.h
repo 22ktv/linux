@@ -79,8 +79,8 @@
 	/*								\
 	 * Ensure alignment of source and destination addresses.	\
 	 */								\
-	BUILD_BUG_ON(!IS_ALIGNED(dest_buf, FNCPY_ALIGN));		\
-	BUILD_BUG_ON(!IS_ALIGNED(__funcp_address, FNCPY_ALIGN));	\
+	BUG_ON((uintptr_t)(dest_buf) & (FNCPY_ALIGN - 1) ||		\
+		(__funcp_address & ~(uintptr_t)1 & (FNCPY_ALIGN - 1)));	\
 									\
 	memcpy(dest_buf, (void const *)__funcp_address, size);		\
 	flush_icache_range((unsigned long)(dest_buf),			\
