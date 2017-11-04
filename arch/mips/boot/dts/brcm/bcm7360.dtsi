@@ -273,6 +273,9 @@
 			reg = <0x430000 0x4c8c>;
 			interrupts = <24>, <25>;
 			interrupt-parent = <&periph_intc>;
+			interrupts-extended = <&periph_intc 24>,
+					      <&periph_intc 25>,
+					      <&aon_pm_l2_intc 6>;
 			status = "disabled";
 
 			mdio@e14 {
