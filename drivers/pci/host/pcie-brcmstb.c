@@ -35,6 +35,7 @@
 #include <soc/brcmstb/memory_api.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include "pcie-brcmstb.h"
 
 /* BRCM_PCIE_CAP_REGS - Offset for the mandatory capability config regs */
 #define BRCM_PCIE_CAP_REGS				0x00ac
@@ -331,6 +332,10 @@ static struct pci_ops brcm_pcie_ops = {
 #define INSERT_FIELD(val, reg, field, field_val) \
 	((val & ~reg##_##field##_MASK) | \
 	 (reg##_##field##_MASK & (field_val << reg##_##field##_SHIFT)))
+
+/* Also used by pci-brcmstb-dma.c */
+struct of_pci_range *dma_ranges;
+int num_dma_ranges;
 
 static struct list_head brcm_pcie = LIST_HEAD_INIT(brcm_pcie);
 static phys_addr_t scb_size[BRCM_MAX_SCB];
@@ -642,25 +647,42 @@ static inline void brcm_pcie_perst_set(struct brcm_pcie *pcie,
 
 static int brcm_pcie_add_controller(struct brcm_pcie *pcie)
 {
-	mutex_lock(&brcm_pcie_lock);
-	list_add_tail(&pcie->list, &brcm_pcie);
-	mutex_unlock(&brcm_pcie_lock);
+	int ret = 0;
 
-	return 0;
+	mutex_lock(&brcm_pcie_lock);
+	if (list_empty(&brcm_pcie)) {
+		ret = brcm_register_notifier();
+		if (ret) {
+			dev_err(pcie->dev,
+				"failed to register pci bus notifier\n");
+			goto done;
+		}
+	}
+	list_add_tail(&pcie->list, &brcm_pcie);
+done:
+	mutex_unlock(&brcm_pcie_lock);
+	return ret;
 }
 
 static void brcm_pcie_remove_controller(struct brcm_pcie *pcie)
 {
 	struct list_head *pos, *q;
 	struct brcm_pcie *tmp;
+	static const char *err_msg = "failed to unregister pci bus notifier\n";
 
 	mutex_lock(&brcm_pcie_lock);
 	list_for_each_safe(pos, q, &brcm_pcie) {
 		tmp = list_entry(pos, struct brcm_pcie, list);
 		if (tmp == pcie) {
 			list_del(pos);
-			if (list_empty(&brcm_pcie))
+			if (list_empty(&brcm_pcie)) {
+				if (brcm_unregister_notifier())
+					dev_err(pcie->dev, err_msg);
+				kfree(dma_ranges);
+				dma_ranges = NULL;
+				num_dma_ranges = 0;
 				num_memc = 0;
+			}
 			break;
 		}
 	}
@@ -710,6 +732,75 @@ static int brcm_pcie_parse_request_of_pci_ranges(struct brcm_pcie *pcie)
 		}
 	}
 	return 0;
+}
+
+static int pci_dma_range_parser_init(struct of_pci_range_parser *parser,
+				     struct device_node *node)
+{
+	const int na = 3, ns = 2;
+	int rlen;
+
+	parser->node = node;
+	parser->pna = of_n_addr_cells(node);
+	parser->np = parser->pna + na + ns;
+
+	parser->range = of_get_property(node, "dma-ranges", &rlen);
+	if (!parser->range)
+		return -ENOENT;
+
+	parser->end = parser->range + rlen / sizeof(__be32);
+
+	return 0;
+}
+
+static int brcm_pcie_parse_map_dma_ranges(struct brcm_pcie *pcie)
+{
+	int i, ret = 0;
+	struct of_pci_range_parser parser;
+	struct device_node *dn = pcie->dn;
+
+	mutex_lock(&brcm_pcie_lock);
+	if (dma_ranges)
+		goto done;
+
+	/*
+	 * Parse dma-ranges property if present.  If there are multiple
+	 * PCI controllers, we only have to parse from one of them since
+	 * the others will have an identical mapping.
+	 */
+	if (!pci_dma_range_parser_init(&parser, dn)) {
+		unsigned int max_ranges
+			= (parser.end - parser.range) / parser.np;
+
+		dma_ranges = kcalloc(max_ranges, sizeof(struct of_pci_range),
+				     GFP_KERNEL);
+		if (!dma_ranges) {
+			ret =  -ENOMEM;
+			goto done;
+		}
+		for (i = 0; of_pci_range_parser_one(&parser, dma_ranges + i);
+		     i++)
+			num_dma_ranges++;
+	}
+
+	for (i = 0, num_memc = 0; i < BRCM_MAX_SCB; i++) {
+		u64 size = brcmstb_memory_memc_size(i);
+
+		if (size == (u64)-1) {
+			dev_err(pcie->dev, "cannot get memc%d size", i);
+			ret = -EINVAL;
+			goto done;
+		} else if (size) {
+			scb_size[i] = roundup_pow_of_two_64(size);
+			num_memc++;
+		} else {
+			break;
+		}
+	}
+
+done:
+	mutex_unlock(&brcm_pcie_lock);
+	return ret;
 }
 
 static int brcm_pcie_setup(struct brcm_pcie *pcie)
@@ -780,6 +871,38 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 	 * only.  We always start the viewport at address 0.
 	 */
 	rc_bar2_offset = 0;
+
+	if (dma_ranges) {
+		/*
+		 * The best-case scenario is to place the inbound
+		 * region in the first 4GB of pci-space, as some
+		 * legacy devices can only address 32bits.
+		 * We would also like to put the MSI under 4GB
+		 * as well, since some devices require a 32bit
+		 * MSI target address.
+		 */
+		if (total_mem_size <= 0xc0000000ULL &&
+		    rc_bar2_size <= 0x100000000ULL) {
+			rc_bar2_offset = 0;
+		} else {
+			/*
+			 * The system memory is 4GB or larger so we
+			 * cannot start the inbound region at location
+			 * 0 (since we have to allow some space for
+			 * outbound memory @ 3GB).  So instead we
+			 * start it at the 1x multiple of its size
+			 */
+			rc_bar2_offset = rc_bar2_size;
+		}
+
+	} else {
+		/*
+		 * Set simple configuration based on memory sizes
+		 * only.  We always start the viewport at address 0,
+		 * and set the MSI target address accordingly.
+		 */
+		rc_bar2_offset = 0;
+	}
 
 	tmp = lower_32_bits(rc_bar2_offset);
 	tmp = INSERT_FIELD(tmp, PCIE_MISC_RC_BAR2_CONFIG_LO, SIZE,
@@ -995,7 +1118,6 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	struct brcm_pcie *pcie;
 	struct resource *res;
 	void __iomem *base;
-	u32 tmp;
 	struct pci_host_bridge *bridge;
 	struct pci_bus *child;
 
@@ -1009,11 +1131,6 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	of_id = of_match_node(brcm_pcie_match, dn);
 	if (!of_id) {
 		dev_err(&pdev->dev, "failed to look up compatible string\n");
-		return -EINVAL;
-	}
-
-	if (of_property_read_u32(dn, "dma-ranges", &tmp) == 0) {
-		dev_err(&pdev->dev, "cannot yet handle dma-ranges\n");
 		return -EINVAL;
 	}
 
@@ -1056,6 +1173,10 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 		pcie->irq = ret;
 
 	ret = brcm_pcie_parse_request_of_pci_ranges(pcie);
+	if (ret)
+		return ret;
+
+	ret = brcm_pcie_parse_map_dma_ranges(pcie);
 	if (ret)
 		return ret;
 
