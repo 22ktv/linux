@@ -198,6 +198,22 @@ struct dmx_pes_filter_params {
 	__u32           flags;
 };
 
+struct dmx_caps {
+	__u32 caps;
+	int num_decoders;
+};
+
+enum dmx_source {
+	DMX_SOURCE_FRONT0 = 0,
+	DMX_SOURCE_FRONT1,
+	DMX_SOURCE_FRONT2,
+	DMX_SOURCE_FRONT3,
+	DMX_SOURCE_DVR0 = 16,
+	DMX_SOURCE_DVR1,
+	DMX_SOURCE_DVR2,
+	DMX_SOURCE_DVR3
+};
+
 /**
  * struct dmx_stc - Stores System Time Counter (STC) information.
  *
@@ -217,6 +233,8 @@ struct dmx_stc {
 #define DMX_SET_PES_FILTER       _IOW('o', 44, struct dmx_pes_filter_params)
 #define DMX_SET_BUFFER_SIZE      _IO('o', 45)
 #define DMX_GET_PES_PIDS         _IOR('o', 47, __u16[5])
+#define DMX_GET_CAPS             _IOR('o', 48, struct dmx_caps)
+#define DMX_SET_SOURCE           _IOW('o', 49, enum dmx_source)
 #define DMX_GET_STC              _IOWR('o', 50, struct dmx_stc)
 #define DMX_ADD_PID              _IOW('o', 51, __u16)
 #define DMX_REMOVE_PID           _IOW('o', 52, __u16)
@@ -228,6 +246,8 @@ typedef enum dmx_output dmx_output_t;
 typedef enum dmx_input dmx_input_t;
 typedef enum dmx_ts_pes dmx_pes_type_t;
 typedef struct dmx_filter dmx_filter_t;
+typedef struct dmx_caps dmx_caps_t;
+typedef enum dmx_source dmx_source_t;
 
 #endif
 
