@@ -280,6 +280,13 @@ int __init brcmstb_l2_edge_intc_of_init(struct device_node *np,
 }
 IRQCHIP_DECLARE(brcmstb_l2_intc, "brcm,l2-intc", brcmstb_l2_edge_intc_of_init);
 
+/* Temporary change to allow newer DTs with HIF_SPI_INTR2 to regiser L2
+ * interrupts without making this driver intercept them using the generic
+ * "brcm,l2-intc" compatible string on older kernels.
+ */
+IRQCHIP_DECLARE(brcmstb_hif_spi_l2_intc, "brcm,hif-spi-l2-intc",
+                brcmstb_l2_edge_intc_of_init);
+
 int __init brcmstb_l2_lvl_intc_of_init(struct device_node *np,
 	struct device_node *parent)
 {
