@@ -104,10 +104,9 @@ vc5_reset_work(struct work_struct *work)
 }
 
 static void
-vc5_hangcheck_elapsed(unsigned long data)
+vc5_hangcheck_elapsed(struct timer_list *t)
 {
-	struct drm_device *dev = (struct drm_device *)data;
-	struct vc5_dev *vc5 = to_vc5_dev(dev);
+	struct vc5_dev *vc5 = from_timer(vc5, t, hangcheck.timer);
 	uint32_t ct0ca, ct1ca;
 	unsigned long irqflags;
 	struct vc5_exec_info *bin_exec, *render_exec;
@@ -808,9 +807,9 @@ vc5_gem_init(struct drm_device *dev)
 	spin_lock_init(&vc5->job_lock);
 
 	INIT_WORK(&vc5->hangcheck.reset_work, vc5_reset_work);
-	setup_timer(&vc5->hangcheck.timer,
+	timer_setup(&vc5->hangcheck.timer,
 		    vc5_hangcheck_elapsed,
-		    (unsigned long)dev);
+		    0);
 
 	INIT_WORK(&vc5->job_done_work, vc5_job_done_work);
 
