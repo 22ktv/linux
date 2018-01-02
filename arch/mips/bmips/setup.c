@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/libfdt.h>
 #include <linux/smp.h>
 #include <asm/addrspace.h>
@@ -28,6 +29,14 @@
 #include <asm/smp-ops.h>
 #include <asm/time.h>
 #include <asm/traps.h>
+
+#include <linux/soc/brcmstb/brcmstb.h>
+
+#ifdef CONFIG_OF_CFE
+extern void __init of_cfe_early_param(void);
+#else
+static inline void __init of_cfe_early_param(void) {}
+#endif
 
 #define RELO_NORMAL_VEC		BIT(18)
 
@@ -110,6 +119,20 @@ static void bcm6368_quirks(void)
 	bcm63xx_fixup_cpu1();
 }
 
+static void bmips5000_pref30_quirk(void)
+{
+	__asm__ __volatile__(
+	"	li	$8, 0x5a455048\n"
+	"	.word	0x4088b00f\n"	/* mtc0 $8, $22, 15 */
+	"	nop; nop; nop\n"
+	"	.word	0x4008b008\n"	/* mfc0 $8, $22, 8 */
+	/* disable "pref 30" on buggy CPUs */
+	"	lui	$9, 0x0800\n"
+	"	or	$8, $9\n"
+	"	.word	0x4088b008\n"	/* mtc0 $8, $22, 8 */
+	: : : "$8", "$9");
+}
+
 static const struct bmips_quirk bmips_quirk_list[] = {
 	{ "brcm,bcm3368",		&bcm6358_quirks			},
 	{ "brcm,bcm3384-viper",		&bcm3384_viper_quirks		},
@@ -120,6 +143,9 @@ static const struct bmips_quirk bmips_quirk_list[] = {
 	{ "brcm,bcm6368",		&bcm6368_quirks			},
 	{ "brcm,bcm63168",		&bcm6368_quirks			},
 	{ "brcm,bcm63268",		&bcm6368_quirks			},
+	{ "brcm,bcm7344",		&bmips5000_pref30_quirk		},
+	{ "brcm,bcm7346",		&bmips5000_pref30_quirk		},
+	{ "brcm,bcm7425",		&bmips5000_pref30_quirk		},
 	{ },
 };
 
@@ -135,7 +161,62 @@ void __init prom_free_prom_memory(void)
 
 const char *get_system_type(void)
 {
+	u32 family_id;
+	u32 product_id;
+
+	family_id  = brcmstb_get_family_id();
+	product_id = brcmstb_get_product_id();
+
+	if (family_id) {
+		static char buf[128];
+
+		snprintf(buf, sizeof(buf), "bcm%x/%c%d",
+			 family_id >> 28 ? family_id >> 16 : family_id >> 8,
+			 ((product_id & 0xf0) >> 4) + 'A', product_id & 0xf);
+
+		return buf;
+	} else
 	return "Generic BMIPS kernel";
+}
+
+/*
+ * MIPS frequency calibration
+ */
+#define TIMER_TIMER_IS		0x00
+#define TIMER_TIMER_IE0		0x04
+#define TIMER_TIMER0_CTRL	0x08
+#define TIMER_TIMER1_CTRL	0x0c
+#define TIMER_TIMER2_CTRL	0x10
+#define TIMER_TIMER3_CTRL	0x14
+
+/* Sampling period for MIPS calibration.  50 = 1/50 of a second. */
+#define SAMPLE_PERIOD		50
+
+static unsigned int __init bcm7xxx_cpu_frequency(void __iomem *timers_base)
+{
+	unsigned int freq;
+	u32 value;
+
+	__raw_writel(0, timers_base + TIMER_TIMER3_CTRL);
+	(void)__raw_readl(timers_base + TIMER_TIMER3_CTRL);
+
+	value = __raw_readl(timers_base + TIMER_TIMER_IS);
+	__raw_writel(value | BIT(3), timers_base + TIMER_TIMER_IS);
+	(void)__raw_readl(timers_base + TIMER_TIMER_IS);
+
+	__raw_writel(0xc0000000 | (27000000 / SAMPLE_PERIOD),
+		     timers_base + TIMER_TIMER0_CTRL);
+
+	write_c0_count(0);
+
+	while ((__raw_readl(timers_base + TIMER_TIMER_IS) & 1) == 0)
+		;
+
+	freq = read_c0_count();
+
+	__raw_writel(0, timers_base + TIMER_TIMER0_CTRL);
+
+	return (freq * SAMPLE_PERIOD);
 }
 
 void __init plat_time_init(void)
@@ -151,6 +232,18 @@ void __init plat_time_init(void)
 	of_node_put(np);
 
 	mips_hpt_frequency = freq;
+
+	np = of_find_compatible_node(NULL, NULL, "brcm,brcmstb-timers");
+	if (np) {
+		void __iomem *timer_base;
+
+		timer_base = of_iomap(np, 0);
+		if (timer_base) {
+			mips_hpt_frequency = bcm7xxx_cpu_frequency(timer_base);
+			iounmap(timer_base);
+		}
+		of_node_put(np);
+	}
 }
 
 extern const char __appended_dtb;
@@ -187,6 +280,8 @@ void __init plat_mem_setup(void)
 			q->quirk_fn();
 		}
 	}
+
+	of_cfe_early_param();
 }
 
 void __init device_tree_init(void)
