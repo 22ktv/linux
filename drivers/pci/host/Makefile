@@ -24,6 +24,9 @@ obj-$(CONFIG_PCIE_MEDIATEK) += pcie-mediatek.o
 obj-$(CONFIG_PCIE_TANGO_SMP8759) += pcie-tango.o
 obj-$(CONFIG_VMD) += vmd.o
 
+obj-$(CONFIG_PCIE_BRCMSTB) += brcmstb-pcie.o
+brcmstb-pcie-objs := pcie-brcmstb.o pcie-brcmstb-dma.o
+
 # The following drivers are for devices that use the generic ACPI
 # pci_root.c driver but don't support standard ECAM config access.
 # They contain MCFG quirks to replace the generic ECAM accessors with
