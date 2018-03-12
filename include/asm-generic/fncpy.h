@@ -1,5 +1,5 @@
 /*
- * arch/arm/include/asm/fncpy.h - helper macros for function body copying
+ * include/asm-generic/fncpy.h - helper macros for function body copying
  *
  * Copyright (C) 2011 Linaro Limited
  *
@@ -53,8 +53,8 @@
  * in the file where f is defined.
  */
 
-#ifndef __ASM_ARM_FNCPY_H
-#define __ASM_ARM_FNCPY_H
+#ifndef __ASM_FNCPY_H
+#define __ASM_FNCPY_H
 
 #include <linux/types.h>
 #include <linux/string.h>
@@ -66,7 +66,9 @@
  * Minimum alignment requirement for the source and destination addresses
  * for function copying.
  */
+#ifndef FNCPY_ALIGN
 #define FNCPY_ALIGN 8
+#endif
 
 #define fncpy(dest_buf, funcp, size) ({					\
 	uintptr_t __funcp_address;					\
@@ -75,20 +77,19 @@
 	asm("" : "=r" (__funcp_address) : "0" (funcp));			\
 									\
 	/*								\
-	 * Ensure alignment of source and destination addresses,	\
-	 * disregarding the function's Thumb bit:			\
+	 * Ensure alignment of source and destination addresses.	\
 	 */								\
 	BUG_ON((uintptr_t)(dest_buf) & (FNCPY_ALIGN - 1) ||		\
 		(__funcp_address & ~(uintptr_t)1 & (FNCPY_ALIGN - 1)));	\
 									\
-	memcpy(dest_buf, (void const *)(__funcp_address & ~1), size);	\
+	memcpy(dest_buf, (void const *)__funcp_address, size);		\
 	flush_icache_range((unsigned long)(dest_buf),			\
 		(unsigned long)(dest_buf) + (size));			\
 									\
 	asm("" : "=r" (__result)					\
-		: "0" ((uintptr_t)(dest_buf) | (__funcp_address & 1)));	\
+		: "0" ((uintptr_t)(dest_buf)));				\
 									\
 	__result;							\
 })
 
-#endif /* !__ASM_ARM_FNCPY_H */
+#endif /* !__ASM_FNCPY_H */
