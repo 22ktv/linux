@@ -18,29 +18,6 @@
 
 static char cfe_buff[COMMAND_LINE_SIZE] __initdata;
 
-void __init of_cfe_early_param(void)
-{
-	uint64_t cfe_ept, cfe_handle;
-	unsigned int cfe_eptseal;
-	int argc = fw_arg0;
-	char **envp = (char **)fw_arg2;
-	int *prom_vec = (int *)fw_arg3;
-
-	cfe_handle = (uint64_t)(long)argc;
-	cfe_ept = (long)envp;
-	cfe_eptseal = (uint32_t)(unsigned long)prom_vec;
-
-	if (cfe_eptseal != CFE_EPTSEAL)
-		return;
-
-	cfe_init(cfe_handle, cfe_ept);
-
-	if (cfe_getenv("BOOT_FLAGS", cfe_buff, COMMAND_LINE_SIZE) == CFE_OK) {
-		strlcat(arcs_cmdline, " ", COMMAND_LINE_SIZE);
-		strlcat(arcs_cmdline, cfe_buff, COMMAND_LINE_SIZE);
-	}
-}
-
 static int __init of_cfe_ethernet(const char *s)
 {
 	struct device_node *node;

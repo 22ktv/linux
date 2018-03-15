@@ -29,14 +29,10 @@
 #include <asm/smp-ops.h>
 #include <asm/time.h>
 #include <asm/traps.h>
+#include <asm/fw/cfe/cfe_api.h>
+#include <asm/fw/cfe/cfe_error.h>
 
 #include <linux/soc/brcmstb/brcmstb.h>
-
-#ifdef CONFIG_OF_CFE
-extern void __init of_cfe_early_param(void);
-#else
-static inline void __init of_cfe_early_param(void) {}
-#endif
 
 #define RELO_NORMAL_VEC		BIT(18)
 
@@ -149,9 +145,33 @@ static const struct bmips_quirk bmips_quirk_list[] = {
 	{ },
 };
 
+static char cfe_buf[COMMAND_LINE_SIZE] __initdata;
+
+static void __init prom_init_cmdline(void)
+{
+	uint64_t cfe_ept, cfe_handle;
+	unsigned int cfe_eptseal;
+	int argc = fw_arg0;
+	char **envp = (char **)fw_arg2;
+	int *prom_vec = (int *)fw_arg3;
+
+	cfe_handle = (uint64_t)(long)argc;
+	cfe_ept = (long)envp;
+	cfe_eptseal = (uint32_t)(unsigned long)prom_vec;
+
+	cfe_init(cfe_handle, cfe_ept);
+
+	if (cfe_eptseal != CFE_EPTSEAL)
+		return;
+
+	if (cfe_getenv("BOOT_FLAGS", cfe_buf, COMMAND_LINE_SIZE) == CFE_OK)
+		strlcat(arcs_cmdline, cfe_buf, COMMAND_LINE_SIZE);
+}
+
 void __init prom_init(void)
 {
 	bmips_cpu_setup();
+	prom_init_cmdline();
 	register_bmips_smp_ops();
 }
 
@@ -280,8 +300,6 @@ void __init plat_mem_setup(void)
 			q->quirk_fn();
 		}
 	}
-
-	of_cfe_early_param();
 }
 
 void __init device_tree_init(void)
