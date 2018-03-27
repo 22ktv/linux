@@ -199,8 +199,9 @@ static const struct v3d_chip_data v3d_7278 = {
 };
 
 static const struct of_device_id vc5_of_match[] = {
-	{ .compatible = "brcm,7268-v3d", &v3d_7268},
-	{ .compatible = "brcm,7278-v3d", &v3d_7278},
+	{ .compatible = "brcm,bcm7260-v3d", &v3d_7268},
+	{ .compatible = "brcm,bcm7268-v3d", &v3d_7268},
+	{ .compatible = "brcm,bcm7278-v3d", &v3d_7278},
 	{},
 };
 MODULE_DEVICE_TABLE(of, vc5_of_match);
