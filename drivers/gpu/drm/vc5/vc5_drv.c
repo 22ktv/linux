@@ -244,9 +244,7 @@ static int vc5_platform_drm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id vc5_of_match[] = {
-	{ .compatible = "brcm,bcm7260-v3d", },
-	{ .compatible = "brcm,bcm7268-v3d", },
-	{ .compatible = "brcm,bcm7271-v3d", },
+	{ .compatible = "brcm,7268-v3d", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, vc5_of_match);
