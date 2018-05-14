@@ -402,6 +402,17 @@ __ca17_errata:
 #endif
 	b	__errata_finish
 
+__v7_b53mp_setup:
+#ifdef CONFIG_SMP
+	ALT_SMP(mrrc	p15, 1, r0, r10, c15)	@ SMP moved to CPUECTLR
+	ALT_UP(mov	r0, #(1 << 6))		@ fake it for UP
+	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
+	orreq	r0, r0, #(1 << 6)		@ Enable SMP/nAMP mode
+	mcrreq	p15, 1, r0, r10, c15
+#endif
+
+	b	__v7_setup
+
 __v7_pj4b_setup:
 #ifdef CONFIG_CPU_PJ4B
 
@@ -717,6 +728,16 @@ __krait_proc_info:
 	 */
 	__v7_proc __krait_proc_info, __v7_setup, hwcaps = HWCAP_IDIV | HWCAP_VFPv4
 	.size	__krait_proc_info, . - __krait_proc_info
+
+	/*
+	 * Broadcom Corporation Brahma-B53 processor.
+	 */
+	.type	__v7_b53mp_proc_info, #object
+__v7_b53mp_proc_info:
+	.long	0x420f1000
+	.long	0xff0ffff0
+	__v7_proc __v7_b53mp_proc_info, __v7_b53mp_setup, cache_fns = b15_cache_fns
+	.size	__v7_b53mp_proc_info, . - __v7_b53mp_proc_info
 
 	/*
 	 * Match any ARMv7 processor core.
