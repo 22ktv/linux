@@ -29,6 +29,8 @@
 #include <linux/string.h>
 #include <linux/types.h>
 
+#include "../pci.h"
+
 /* BRCM_PCIE_CAP_REGS - Offset for the mandatory capability config regs */
 #define BRCM_PCIE_CAP_REGS				0x00ac
 
@@ -616,7 +618,7 @@ static void brcm_set_dma_ops(struct device *dev)
 		 * get_dma_ops() will work properly because
 		 * dev->dma_ops will be set.
 		 */
-		ret = of_dma_configure(dev, dev->of_node);
+		ret = of_dma_configure(dev, dev->of_node, true);
 		if (ret) {
 			dev_err(dev, "of_dma_configure() failed: %d\n", ret);
 			return;
@@ -1318,10 +1320,11 @@ out:
 
 static int brcm_pcie_parse_request_of_pci_ranges(struct brcm_pcie *pcie)
 {
+	struct device *dev = pcie->dev;
 	struct resource_entry *win;
 	int ret;
 
-	ret = of_pci_get_host_bridge_resources(pcie->dn, 0, 0xff,
+	ret = devm_of_pci_get_host_bridge_resources(dev, 0, 0xff,
 					       &pcie->resources, NULL);
 	if (ret) {
 		dev_err(pcie->dev, "failed to get host resources\n");
