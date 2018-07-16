@@ -30,10 +30,14 @@
 #include <linux/types.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/syscore_ops.h>
 
 #define IRQS_PER_WORD		32
 #define REG_BYTES_PER_IRQ_WORD	(sizeof(u32) * 4)
 #define MAX_WORDS		8
+
+/* Nexus requires irqs to be mapped linearly with an offset of 32 */
+#define NEXUS_IRQ_OFFSET	32
 
 struct bcm7038_l1_cpu;
 
@@ -42,6 +46,10 @@ struct bcm7038_l1_chip {
 	unsigned int		n_words;
 	struct irq_domain	*domain;
 	struct bcm7038_l1_cpu	*cpus[NR_CPUS];
+#ifdef CONFIG_PM_SLEEP
+	struct list_head	list;
+	u32			wake_mask[MAX_WORDS];
+#endif
 	u8			affinity[MAX_WORDS * IRQS_PER_WORD];
 };
 
@@ -49,6 +57,17 @@ struct bcm7038_l1_cpu {
 	void __iomem		*map_base;
 	u32			mask_cache[0];
 };
+
+/*
+ * We keep a list of bcm7038_l1_chip used for suspend/resume. This hack is
+ * used because the struct chip_type suspend/resume hooks are not called
+ * unless chip_type is hooked onto a generic_chip. Since this driver does
+ * not use generic_chip, we need to manually hook our resume/suspend to
+ * syscore_ops.
+ */
+#ifdef CONFIG_PM_SLEEP
+static LIST_HEAD(bcm7038_l1_intcs_list);
+#endif
 
 /*
  * STATUS/MASK_STATUS/MASK_SET/MASK_CLEAR are packed one right after another:
@@ -212,8 +231,6 @@ static int bcm7038_l1_set_affinity(struct irq_data *d,
 		__bcm7038_l1_unmask(d, first_cpu);
 
 	raw_spin_unlock_irqrestore(&intc->lock, flags);
-	irq_data_update_effective_affinity(d, cpumask_of(first_cpu));
-
 	return 0;
 }
 
@@ -288,12 +305,86 @@ static int __init bcm7038_l1_init_one(struct device_node *dn,
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int bcm7038_l1_suspend(void)
+{
+	struct bcm7038_l1_chip *intc;
+	unsigned long flags;
+	int boot_cpu, word;
+
+	/* Wakeup interrupt should only come from the boot cpu */
+	boot_cpu = cpu_logical_map(smp_processor_id());
+
+	list_for_each_entry(intc, &bcm7038_l1_intcs_list, list) {
+		raw_spin_lock_irqsave(&intc->lock, flags);
+		for (word = 0; word < intc->n_words; word++) {
+			l1_writel(~intc->wake_mask[word],
+				intc->cpus[boot_cpu]->map_base +
+				reg_mask_set(intc, word));
+			l1_writel(intc->wake_mask[word],
+				intc->cpus[boot_cpu]->map_base +
+				reg_mask_clr(intc, word));
+		}
+		raw_spin_unlock_irqrestore(&intc->lock, flags);
+	}
+
+	return 0;
+}
+
+static void bcm7038_l1_resume(void)
+{
+	struct bcm7038_l1_chip *intc;
+	unsigned long flags;
+	int boot_cpu, word;
+
+	boot_cpu = cpu_logical_map(smp_processor_id());
+
+	list_for_each_entry(intc, &bcm7038_l1_intcs_list, list) {
+		raw_spin_lock_irqsave(&intc->lock, flags);
+		for (word = 0; word < intc->n_words; word++) {
+			l1_writel(intc->cpus[boot_cpu]->mask_cache[word],
+				intc->cpus[boot_cpu]->map_base +
+				reg_mask_set(intc, word));
+			l1_writel(~intc->cpus[boot_cpu]->mask_cache[word],
+				intc->cpus[boot_cpu]->map_base +
+				reg_mask_clr(intc, word));
+		}
+		raw_spin_unlock_irqrestore(&intc->lock, flags);
+	}
+}
+
+static struct syscore_ops bcm7038_l1_syscore_ops = {
+	.suspend	= bcm7038_l1_suspend,
+	.resume		= bcm7038_l1_resume,
+};
+
+static int bcm7038_l1_set_wake(struct irq_data *d, unsigned int on)
+{
+	struct bcm7038_l1_chip *intc = irq_data_get_irq_chip_data(d);
+	unsigned long flags;
+	u32 word = d->hwirq / IRQS_PER_WORD;
+	u32 mask = BIT(d->hwirq % IRQS_PER_WORD);
+
+	raw_spin_lock_irqsave(&intc->lock, flags);
+	if (on)
+		intc->wake_mask[word] |= mask;
+	else
+		intc->wake_mask[word] &= ~mask;
+	raw_spin_unlock_irqrestore(&intc->lock, flags);
+
+	return 0;
+}
+#endif
+
 static struct irq_chip bcm7038_l1_irq_chip = {
 	.name			= "bcm7038-l1",
 	.irq_mask		= bcm7038_l1_mask,
 	.irq_unmask		= bcm7038_l1_unmask,
 	.irq_set_affinity	= bcm7038_l1_set_affinity,
 	.irq_cpu_offline	= bcm7038_l1_cpu_offline,
+#if CONFIG_PM_SLEEP
+	.irq_set_wake		= bcm7038_l1_set_wake,
+#endif
 };
 
 static int bcm7038_l1_map(struct irq_domain *d, unsigned int virq,
@@ -301,7 +392,6 @@ static int bcm7038_l1_map(struct irq_domain *d, unsigned int virq,
 {
 	irq_set_chip_and_handler(virq, &bcm7038_l1_irq_chip, handle_level_irq);
 	irq_set_chip_data(virq, d->host_data);
-	irqd_set_single_target(irq_desc_get_irq_data(irq_to_desc(virq)));
 	return 0;
 }
 
@@ -314,7 +404,7 @@ int __init bcm7038_l1_of_init(struct device_node *dn,
 			      struct device_node *parent)
 {
 	struct bcm7038_l1_chip *intc;
-	int idx, ret;
+	int idx, ret, irq_base;
 
 	intc = kzalloc(sizeof(*intc), GFP_KERNEL);
 	if (!intc)
@@ -331,13 +421,27 @@ int __init bcm7038_l1_of_init(struct device_node *dn,
 		}
 	}
 
-	intc->domain = irq_domain_add_linear(dn, IRQS_PER_WORD * intc->n_words,
-					     &bcm7038_l1_domain_ops,
+	irq_base = irq_alloc_descs(-1, NEXUS_IRQ_OFFSET, IRQS_PER_WORD * intc->n_words,
+				   numa_node_id());
+
+	if (irq_base != NEXUS_IRQ_OFFSET)
+		pr_warn("Unable to alloc irq nums for Nexus. Nexus might die.\n");
+
+	intc->domain = irq_domain_add_legacy(dn, IRQS_PER_WORD * intc->n_words,
+					     irq_base, 0, &bcm7038_l1_domain_ops,
 					     intc);
 	if (!intc->domain) {
 		ret = -ENOMEM;
 		goto out_unmap;
 	}
+
+#ifdef CONFIG_PM_SLEEP
+	/* Add bcm7038_l1_chip into a list */
+	INIT_LIST_HEAD(&intc->list);
+	list_add_tail(&intc->list, &bcm7038_l1_intcs_list);
+
+	register_syscore_ops(&bcm7038_l1_syscore_ops);
+#endif
 
 	return 0;
 
