@@ -1590,13 +1590,18 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 static void enter_l23(struct brcm_pcie *pcie)
 {
 	void __iomem *base = pcie->base;
-	int tries, l23;
+	int l23, i;
 
 	/* assert request for L23 */
 	WR_FLD_RB(base, PCIE_MISC_PCIE_CTRL, PCIE_L23_REQUEST, 1);
-	/* poll L23 status */
-	for (tries = 0, l23 = 0; tries < 1000 && !l23; tries++)
+
+	/* Wait up to 30 msec for L23 */
+	l23 = RD_FLD(base, PCIE_MISC_PCIE_STATUS, PCIE_LINK_IN_L23);
+	for (i = 0; i < 15 && !l23; i++) {
+		usleep_range(2000, 2400);
 		l23 = RD_FLD(base, PCIE_MISC_PCIE_STATUS, PCIE_LINK_IN_L23);
+	}
+
 	if (!l23)
 		dev_err(pcie->dev, "failed to enter L23\n");
 }
