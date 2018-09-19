@@ -12,4 +12,20 @@
 
 bool soc_is_brcmstb(void);
 
+#if defined(CONFIG_PCIE_BRCMSTB)
+dma_addr_t brcm_phys_to_dma(struct device *dev, phys_addr_t paddr);
+phys_addr_t brcm_dma_to_phys(struct device *dev, dma_addr_t dev_addr);
+#else
+static inline dma_addr_t brcm_phys_to_dma(struct device *dev, phys_addr_t paddr)
+{
+	return (dma_addr_t)paddr;
+}
+
+static inline phys_addr_t brcm_dma_to_phys(struct device *dev,
+					   dma_addr_t dev_addr)
+{
+	return (phys_addr_t)dev_addr;
+}
+#endif
+
 #endif /* __SOC_BRCMSTB_COMMON_H__ */
