@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 menuconfig ARCH_BCM
 	bool "Broadcom SoC Support"
-	depends on ARCH_MULTI_V6_V7
+	depends on ARCH_BRCMSTB
 	help
 	  This enables support for Broadcom ARM based SoC chips
 
@@ -204,24 +204,5 @@ config ARCH_BCM_63XX
 	  This enables support for systems based on Broadcom DSL SoCs.
 	  It currently supports the 'BCM63XX' ARM-based family, which includes
 	  the BCM63138 variant.
-
-config ARCH_BRCMSTB
-	bool "Broadcom BCM7XXX based boards"
-	depends on ARCH_MULTI_V7
-	select ARM_GIC
-	select ARM_ERRATA_798181 if SMP
-	select HAVE_ARM_ARCH_TIMER
-	select BRCMSTB_L2_IRQ
-	select BCM7120_L2_IRQ
-	select ARCH_HAS_HOLES_MEMORYMODEL
-	select ZONE_DMA if ARM_LPAE
-	select SOC_BRCMSTB
-	select SOC_BUS
-	help
-	  Say Y if you intend to run the kernel on a Broadcom ARM-based STB
-	  chipset.
-
-	  This enables support for Broadcom ARM-based set-top box chipsets,
-	  including the 7445 family of chips.
 
 endif
