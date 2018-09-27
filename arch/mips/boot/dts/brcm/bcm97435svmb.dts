@@ -128,3 +128,7 @@
 &waketimer {
 	status = "okay";
 };
+
+&pcie {
+	status = "okay";
+};
