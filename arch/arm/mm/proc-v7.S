@@ -284,10 +284,16 @@ __v7_cr8mp_setup:
 	b	1f
 __v7_ca7mp_setup:
 __v7_ca12mp_setup:
+	b	2f
 __v7_ca15mp_setup:
 __v7_b15mp_setup:
+#ifdef CONFIG_HARDEN_BRANCH_PREDICTOR
+	mrc	p15, 0, r0, c1, c0, 1
+	orr	r0, r0, #1			@ Enable IBE bit
+	mcr	p15, 0, r0, c1, c0, 1
+#endif
 __v7_ca17mp_setup:
-	mov	r10, #0
+2:	mov	r10, #0
 1:	adr	r0, __v7_setup_stack_ptr
 	ldr	r12, [r0]
 	add	r12, r12, r0			@ the local stack
