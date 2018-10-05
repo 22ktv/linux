@@ -197,6 +197,7 @@ typedef __u16 video_attributes_t;
 #define VIDEO_SET_STREAMTYPE       _IO('o', 36)
 #define VIDEO_SET_FORMAT           _IO('o', 37)
 #define VIDEO_GET_SIZE             _IOR('o', 55, video_size_t)
+#define VIDEO_GET_FRAME_RATE       _IOR('o', 56, unsigned int)
 
 /**
  * VIDEO_GET_PTS
