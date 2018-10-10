@@ -413,9 +413,9 @@ noinline int brcmstb_pm_s3_finish(void)
 	u32 flags;
 
 #ifdef CONFIG_ARM
-	phys_addr_t reentry = virt_to_phys(&cpu_resume_arm);
+	reentry = virt_to_phys(&cpu_resume_arm);
 #else
-	phys_addr_t reentry = virt_to_phys(&cpu_resume);
+	reentry = virt_to_phys(&cpu_resume);
 #endif
 
 	/*
