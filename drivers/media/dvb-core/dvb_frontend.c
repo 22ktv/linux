@@ -2093,6 +2093,14 @@ static int dvb_frontend_handle_compat_ioctl(struct file *file, unsigned int cmd,
 			return PTR_ERR(tvp);
 
 		for (i = 0; i < tvps->num; i++) {
+			/* Allow the frontend to validate incoming properties */
+			if (fe->ops.set_property) {
+				err = fe->ops.set_property(fe, (struct dtv_property *)(tvp + i));
+				if (err < 0) {
+					kfree(tvp);
+					return err;
+				}
+			}
 			err = dtv_property_process_set(fe, file,
 						       (tvp + i)->cmd,
 						       (tvp + i)->u.data);
@@ -2419,6 +2427,14 @@ static int dvb_frontend_handle_ioctl(struct file *file,
 			return PTR_ERR(tvp);
 
 		for (i = 0; i < tvps->num; i++) {
+			/* Allow the frontend to validate incoming properties */
+			if (fe->ops.set_property) {
+				err = fe->ops.set_property(fe, tvp + i);
+				if (err < 0) {
+					kfree(tvp);
+					return err;
+				}
+			}
 			err = dtv_property_process_set(fe, file,
 						       (tvp + i)->cmd,
 						       (tvp + i)->u.data);
