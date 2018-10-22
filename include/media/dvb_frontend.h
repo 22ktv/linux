@@ -431,6 +431,8 @@ struct dvb_frontend_internal_info {
  * @search:		callback function used on some custom algo search algos.
  * @tuner_ops:		pointer to &struct dvb_tuner_ops
  * @analog_ops:		pointer to &struct analog_demod_ops
+ * @set_property:	callback function to allow the frontend to validade
+ *			incoming properties. Should not be used on new drivers.
  */
 struct dvb_frontend_ops {
 	struct dvb_frontend_internal_info info;
@@ -491,6 +493,8 @@ struct dvb_frontend_ops {
 
 	struct dvb_tuner_ops tuner_ops;
 	struct analog_demod_ops analog_ops;
+
+	int (*set_property)(struct dvb_frontend* fe, struct dtv_property* tvp);
 };
 
 #ifdef __DVB_CORE__
