@@ -479,7 +479,8 @@ static int cfg80211_get_chans_dfs_required(struct wiphy *wiphy,
 		if (!c)
 			return -EINVAL;
 
-		if (c->flags & IEEE80211_CHAN_RADAR)
+		if ((c->flags & IEEE80211_CHAN_RADAR) &&
+		    !(wiphy->flags & WIPHY_FLAG_DFS_OFFLOAD))
 			return 1;
 	}
 	return 0;
@@ -760,7 +761,8 @@ static bool cfg80211_get_chans_dfs_available(struct wiphy *wiphy,
 		if (c->flags & IEEE80211_CHAN_DISABLED)
 			return false;
 
-		if ((c->flags & IEEE80211_CHAN_RADAR) &&
+		if (!(wiphy->flags & WIPHY_FLAG_DFS_OFFLOAD) &&
+		    (c->flags & IEEE80211_CHAN_RADAR) &&
 		    (c->dfs_state != NL80211_DFS_AVAILABLE) &&
 		    !(c->dfs_state == NL80211_DFS_USABLE && dfs_offload))
 			return false;
