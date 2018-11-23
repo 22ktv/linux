@@ -22,6 +22,7 @@
 #include <linux/of_pci.h>
 #include <linux/of_platform.h>
 #include <linux/pci.h>
+#include <linux/phy/phy.h>
 #include <linux/printk.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -207,6 +208,12 @@ enum pcie_type {
 	BCM7278,
 };
 
+struct brcm_dev_pwr_supply {
+	struct list_head node;
+	char name[32];
+	struct regulator *regulator;
+};
+
 struct brcm_window {
 	dma_addr_t pcie_addr;
 	phys_addr_t cpu_addr;
@@ -262,6 +269,9 @@ struct brcm_pcie {
 	const int		*reg_offsets;
 	const int		*reg_field_info;
 	enum pcie_type		type;
+	struct list_head	pwr_supplies;
+	bool			ep_wakeup_capable;
+	bool			bridge_setup_done;
 };
 
 struct pcie_cfg_data {
@@ -1363,6 +1373,59 @@ static int brcm_pcie_parse_request_of_pci_ranges(struct brcm_pcie *pcie)
 	return 0;
 }
 
+static int pci_dev_may_wakeup(struct pci_dev *dev, void *data)
+{
+	bool *ret = data;
+
+	if (device_may_wakeup(&dev->dev)) {
+		*ret = true;
+		dev_info(&dev->dev, "disable cancelled for wake-up device\n");
+	}
+	return (int) *ret;
+}
+
+static void set_regulators(struct brcm_pcie *pcie, bool on)
+{
+	struct list_head *pos;
+	struct pci_bus *bus = pcie->root_bus;
+
+	if (on) {
+		if (pcie->ep_wakeup_capable) {
+			/*
+			 * We are resuming from a suspend.  In the suspend we
+			 * did not disable the power supplies, so there is
+			 * no need to enable them (and falsely increase their
+			 * usage count).
+			 */
+			pcie->ep_wakeup_capable = false;
+			return;
+		}
+	} else {
+		/*
+		 * If at least one device on this bus is enabled as a wake-up
+		 * source, do not turn off regulators
+		 */
+		pcie->ep_wakeup_capable = false;
+		if (pcie->bridge_setup_done) {
+			pci_walk_bus(bus, pci_dev_may_wakeup, &pcie->ep_wakeup_capable);
+			if (pcie->ep_wakeup_capable)
+				return;
+		}
+	}
+
+	list_for_each(pos, &pcie->pwr_supplies) {
+		struct brcm_dev_pwr_supply *supply
+			= list_entry(pos, struct brcm_dev_pwr_supply, node);
+
+		if (on && regulator_enable(supply->regulator))
+			pr_debug("Unable to turn on %s supply.\n",
+				 supply->name);
+		else if (!on && regulator_disable(supply->regulator))
+			pr_debug("Unable to turn off %s supply.\n",
+				 supply->name);
+	}
+}
+
 static int brcm_pcie_setup(struct brcm_pcie *pcie)
 {
 	void __iomem *base = pcie->base;
@@ -1583,6 +1646,8 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 	 */
 	WR_FLD_RB(base, PCIE_MISC_HARD_PCIE_HARD_DEBUG, CLKREQ_DEBUG_ENABLE, 1);
 
+	pcie->bridge_setup_done = true;
+
 	return 0;
 }
 
@@ -1628,6 +1693,7 @@ static int brcm_pcie_suspend(struct device *dev)
 
 	turn_off(pcie);
 	clk_disable_unprepare(pcie->clk);
+	set_regulators(pcie, false);
 	pcie->suspended = true;
 
 	return 0;
@@ -1640,6 +1706,7 @@ static int brcm_pcie_resume(struct device *dev)
 	int ret;
 
 	base = pcie->base;
+	set_regulators(pcie, true);
 	clk_prepare_enable(pcie->clk);
 
 	/* Take bridge out of reset so we can access the SerDes reg */
@@ -1667,6 +1734,7 @@ static void _brcm_pcie_remove(struct brcm_pcie *pcie)
 	brcm_msi_remove(pcie);
 	turn_off(pcie);
 	clk_disable_unprepare(pcie->clk);
+	set_regulators(pcie, false);
 	clk_put(pcie->clk);
 	brcm_pcie_remove_controller(pcie);
 }
@@ -1702,6 +1770,10 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	void __iomem *base;
 	struct pci_host_bridge *bridge;
 	struct pci_bus *child;
+	int supplies;
+	struct brcm_dev_pwr_supply *supply;
+	const char *name;
+	int i;
 
 	bridge = devm_pci_alloc_host_bridge(&pdev->dev, sizeof(*pcie));
 	if (!bridge)
@@ -1722,6 +1794,28 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	pcie->type = data->type;
 	pcie->dn = dn;
 	pcie->dev = &pdev->dev;
+
+	INIT_LIST_HEAD(&pcie->pwr_supplies);
+	supplies = of_property_count_strings(dn, "supply-names");
+	if (supplies <= 0)
+		supplies = 0;
+
+	for (i = 0; i < supplies; i++) {
+		if (of_property_read_string_index(dn, "supply-names", i,
+						  &name))
+			continue;
+		supply = devm_kzalloc(&pdev->dev, sizeof(*supply), GFP_KERNEL);
+		if (!supply)
+			return -ENOMEM;
+		strscpy(supply->name, name, sizeof(supply->name));
+		supply->regulator = devm_regulator_get_optional(&pdev->dev, name);
+		if (IS_ERR(supply->regulator)) {
+			dev_err(&pdev->dev, "Unable to get %s supply, err=%d\n",
+				name, (int)PTR_ERR(supply->regulator));
+			continue;
+		}
+		list_add_tail(&supply->node, &pcie->pwr_supplies);
+	}
 
 	/* We use the domain number as our controller number */
 	pcie->id = of_get_pci_domain_nr(dn);
@@ -1768,6 +1862,8 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	ret = brcm_pcie_add_controller(pcie);
 	if (ret)
 		return ret;
+
+	set_regulators(pcie, true);
 
 	ret = brcm_pcie_setup(pcie);
 	if (ret)
