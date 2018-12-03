@@ -9,7 +9,7 @@ config BRCMSTB_PM
 
 config BRCMSTB_BMEM
 	bool "Enable BMEM reserved A/V memory"
-	depends on HAVE_MEMBLOCK && (ARCH_BRCMSTB || BMIPS_GENERIC)
+	depends on (ARCH_BRCMSTB || BMIPS_GENERIC)
 	help
 	  The A/V peripherals (managed by the PI/Nexus middleware) require
 	  large, contiguous memory regions to be set aside at boot time.  This
