@@ -408,7 +408,11 @@ noinline int brcmstb_pm_s3_finish(void)
 {
 	struct brcmstb_s3_params *params = ctrl.s3_params;
 	dma_addr_t params_pa = ctrl.s3_params_pa;
+#ifdef CONFIG_ARM
 	phys_addr_t reentry = virt_to_phys(&cpu_resume_arm);
+#else
+	phys_addr_t reentry = virt_to_phys(&cpu_resume);
+#endif
 	enum bsp_initiate_command cmd;
 	u32 flags;
 
