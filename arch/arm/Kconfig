@@ -631,8 +631,8 @@ config ARCH_BRCMSTB
 	select COMMON_CLK
 	select GENERIC_CLOCKEVENTS
 	select MULTI_IRQ_HANDLER
-	select MIGHT_HAVE_PCI
-	select PCI_DOMAINS if PCI
+	select HAVE_PCI
+	select PCI_DOMAINS_GENERIC if PCI
 	select USE_OF
 
 	select CPU_V7
