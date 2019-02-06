@@ -280,5 +280,18 @@ config VMD
 	  To compile this driver as a module, choose M here: the
 	  module will be called vmd.
 
+config PCIE_BRCMSTB
+	bool "Broadcom Brcmstb PCIe host controller"
+	depends on ARCH_BRCMSTB || BMIPS_GENERIC
+	depends on OF && PCI_MSI
+	depends on SOC_BRCMSTB
+	default ARCH_BRCMSTB || BMIPS_GENERIC
+	select ARCH_HAS_PHYS_TO_DMA if ARM64
+	help
+	  Say Y here to enable PCIe host controller support for
+	  Broadcom Settop Box SOCs.  A Broadcom SOC will may have
+	  multiple host controllers as opposed to a single host
+	  controller with multiple ports.
+
 source "drivers/pci/controller/dwc/Kconfig"
 endmenu
