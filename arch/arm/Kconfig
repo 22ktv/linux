@@ -642,6 +642,7 @@ config ARCH_BRCMSTB
 	select ARM_GIC
 	select ARM_GIC_V3
 	select HAVE_ARM_ARCH_TIMER
+	select HAVE_NATIVE_64BIT_ACCESS
 	select SPARSE_IRQ
 	select BRCMSTB_L2_IRQ
 	select BCM7120_L2_IRQ
@@ -1270,6 +1271,17 @@ config PCI_HOST_ITE8152
 endmenu
 
 menu "Kernel Features"
+
+config HAVE_NATIVE_64BIT_ACCESS
+	bool
+	depends on !THUMB2_KERNEL
+	depends on (CPU_32v7 || CPU_32v6 || CPU_32v6K || CPU_32v5)
+	help
+	   This symbol should be selected by an architecture if 64 bit
+	   accesses to specific address space, e.g: registers is required.
+
+	   It will allow the use of native readq/write I/O accessors for this
+	   platform.
 
 config HAVE_SMP
 	bool
