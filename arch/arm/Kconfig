@@ -623,6 +623,39 @@ config ARCH_OMAP1
 	help
 	  Support for older TI OMAP1 (omap7xx, omap15xx or omap16xx)
 
+config ARCH_BRCMSTB
+	bool "Broadcom BCM7XXX based boards"
+	select ARM_HAS_SG_CHAIN
+	select ARM_PATCH_PHYS_VIRT
+	select TIMER_OF
+	select COMMON_CLK
+	select GENERIC_CLOCKEVENTS
+	select MULTI_IRQ_HANDLER
+	select HAVE_PCI
+	select PCI_DOMAINS_GENERIC if PCI
+	select USE_OF
+
+	select CPU_V7
+	select ARCH_BCM
+	select HAVE_SMP
+	select AUTO_ZRELADDR
+	select ARM_GIC
+	select ARM_GIC_V3
+	select HAVE_ARM_ARCH_TIMER
+	select SPARSE_IRQ
+	select BRCMSTB_L2_IRQ
+	select BCM7120_L2_IRQ
+	select ARCH_HAS_HOLES_MEMORYMODEL
+	select ARCH_DMA_ADDR_T_64BIT if ARM_LPAE
+	select ZONE_DMA if ARM_LPAE
+	select NEED_MACH_MEMORY_H
+	help
+	  Say Y if you intend to run the kernel on a Broadcom ARM-based STB
+	  chipset.
+
+	  This enables support for Broadcom ARM-based set-top box chipsets,
+	  including the 7445 family of chips.
+
 endchoice
 
 menu "Multiple platform selection"
