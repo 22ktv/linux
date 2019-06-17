@@ -453,7 +453,7 @@ static struct clk __init *brcmstb_clk_sw_register(
 	init.ops = &brcmstb_clk_sw_ops;
 	init.parent_names = parent_names;
 	init.num_parents = num_parents;
-	init.flags = flags | CLK_IS_BASIC | CLK_IS_SW;
+	init.flags = flags | CLK_IS_SW;
 	init.flags |= CLK_IGNORE_UNUSED;
 
 	sw_clk->hw.init = &init;
@@ -544,7 +544,7 @@ static struct clk *clk_register_mux_table_brcm(struct device *dev,
 		init.ops = &clk_mux_ro_ops;
 	else
 		init.ops = &clk_mux_ops_brcm;
-	init.flags = flags | CLK_IS_BASIC;
+	init.flags = flags;
 	init.parent_names = parent_names;
 	init.num_parents = num_parents;
 
@@ -878,7 +878,7 @@ static unsigned long clk_multiplier_recalc_rate(struct clk_hw *hw,
 	struct clk_multiplier *multiplier = to_clk_multiplier(hw);
 	unsigned int val;
 
-	val = clk_readl(multiplier->reg) >> multiplier->shift;
+	val = readl(multiplier->reg) >> multiplier->shift;
 	val &= mult_mask(multiplier->width);
 
 	return multiplier_recalc_rate(hw, parent_rate, val, multiplier->table,
@@ -1029,11 +1029,11 @@ static int clk_multiplier_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (multiplier->flags & CLK_MULTIPLIER_HIWORD_MASK) {
 		val = mult_mask(multiplier->width) << (multiplier->shift + 16);
 	} else {
-		val = clk_readl(multiplier->reg);
+		val = readl(multiplier->reg);
 		val &= ~(mult_mask(multiplier->width) << multiplier->shift);
 	}
 	val |= value << multiplier->shift;
-	clk_writel(val, multiplier->reg);
+	writel(val, multiplier->reg);
 
 	if (multiplier->lock)
 		spin_unlock_irqrestore(multiplier->lock, flags);
@@ -1078,7 +1078,7 @@ static struct clk *_register_multiplier(struct device *dev, const char *name,
 		init.ops = &bcm_clk_multiplier_ro_ops;
 	else
 		init.ops = &bcm_clk_multiplier_ops;
-	init.flags = flags | CLK_IS_BASIC;
+	init.flags = flags;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
