@@ -842,7 +842,7 @@ static void clk_core_unprepare(struct clk_core *core)
 		int i;
 
 		for (i = 0; i < core->num_parents; i++)
-			clk_core_unprepare(core->parents[i]);
+			clk_core_unprepare(core->parents[i].core);
 	} else {
 		clk_core_unprepare(core->parent);
 	}
@@ -893,10 +893,10 @@ static int clk_core_prepare(struct clk_core *core)
 			int i, j;
 
 			for (i = 0; i < core->num_parents; i++) {
-				ret = clk_core_prepare(core->parents[i]);
+				ret = clk_core_prepare(core->parents[i].core);
 				if (ret) {
 					for (j = i - 1; j >= 0; j--)
-						clk_core_unprepare(core->parents[j]);
+						clk_core_unprepare(core->parents[j].core);
 					break;
 				}
 			}
@@ -996,7 +996,7 @@ static void clk_core_disable(struct clk_core *core)
 		int i;
 
 		for (i = 0; i < core->num_parents; i++)
-			clk_core_disable(core->parents[i]);
+			clk_core_disable(core->parents[i].core);
 	} else {
 		clk_core_disable(core->parent);
 	}
@@ -1050,10 +1050,10 @@ static int clk_core_enable(struct clk_core *core)
 			int i, j;
 
 			for (i = 0; i < core->num_parents && !ret; i++) {
-				ret = clk_core_enable(core->parents[i]);
+				ret = clk_core_enable(core->parents[i].core);
 				if (ret) {
 					for (j = i - 1; j >= 0; j--)
-						clk_core_disable(core->parents[j]);
+						clk_core_disable(core->parents[j].core);
 					break;
 				}
 			}
