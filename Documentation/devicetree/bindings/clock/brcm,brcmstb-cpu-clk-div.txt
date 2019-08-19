@@ -1,0 +1,22 @@
+The CPU divider node serves as the sole clock for the CPU complex. It supports
+power-of-2 clock division, with a divider of "1" as the default highest-speed
+setting.
+
+Required properties:
+- compatible: shall be "brcm,brcmstb-cpu-clk-div"
+- reg: address and width of the divider configuration register
+- #clock-cells: shall be set to 0
+- clocks: phandle of clock provider which provides the source clock
+          (this would typically be a "fixed-clock" type PLL)
+
+Optional properties:
+- clock-names: the clock may be named
+
+Example:
+	cpuclkdiv: clock-controller@f03e257c {
+		compatible = "brcm,brcmstb-cpu-clk-div";
+		reg = <0xf03e257c 0x4>;
+		#clock-cells = <0>;
+		clocks = <&cpupll>;
+		clock-names = "cpupll";
+	};
