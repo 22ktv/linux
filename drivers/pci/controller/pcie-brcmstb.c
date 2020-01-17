@@ -987,6 +987,7 @@ fail:
 }
 
 static const struct of_device_id brcm_pcie_match[] = {
+	{ .compatible = "brcm,bcm7445-pcie" },
 	{ .compatible = "brcm,bcm2711-pcie" },
 	{},
 };
