@@ -14,7 +14,13 @@ allOf:
 
 properties:
   compatible:
-    const: brcm,bcm2711-pcie # The Raspberry Pi 4
+    oneOf:
+      - description:
+          BCM2711 based Boards
+        const: brcm,bcm2711-pcie
+      - description:
+          ARM-based BCM7XXX Broadcom STB Boards
+        const: brcm,bcm7445-pcie
 
   reg:
     maxItems: 1
