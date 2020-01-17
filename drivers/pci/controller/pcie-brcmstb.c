@@ -22,6 +22,7 @@
 #include <linux/of_pci.h>
 #include <linux/of_platform.h>
 #include <linux/pci.h>
+#include <linux/phy/phy.h>
 #include <linux/printk.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -173,6 +174,16 @@ struct brcm_pcie {
 	int			gen;
 	u64			msi_target_addr;
 	struct brcm_msi		*msi;
+
+	struct list_head	pwr_supplies;
+	bool			ep_wakeup_capable;
+	bool			bridge_setup_done;
+};
+
+struct brcm_pwr_supply {
+	struct list_head node;
+	char name[32];
+	struct regulator *regulator;
 };
 
 /*
@@ -614,6 +625,56 @@ static inline void brcm_pcie_perst_set(struct brcm_pcie *pcie, u32 val)
 	writel(tmp, pcie->base + PCIE_RGR1_SW_INIT_1);
 }
 
+static int brcm_pwr_may_wakeup(struct pci_dev *dev, void *data)
+{
+	bool *ret = data;
+
+	if (device_may_wakeup(&dev->dev)) {
+		*ret = true;
+		dev_info(&dev->dev, "disable cancelled for wake-up device\n");
+	}
+	return (int) *ret;
+}
+
+static void brcm_pwr_set_regulators(struct brcm_pcie *pcie, bool on)
+{
+	struct list_head *pos;
+	struct pci_bus *bus = pcie->root_bus;
+
+	if (on) {
+		if (pcie->ep_wakeup_capable) {
+			/*
+			 * We are resuming from a suspend.  In the suspend we
+			 * did not disable the power supplies, so there is
+			 * no need to enable them (and falsely increase their
+			 * usage count).
+			 */
+			pcie->ep_wakeup_capable = false;
+			return;
+		}
+	} else {
+		/*
+		 * If at least one device on this bus is enabled as a wake-up
+		 * source, do not turn off regulators
+		 */
+		pcie->ep_wakeup_capable = false;
+		if (pcie->bridge_setup_done) {
+			pci_walk_bus(bus, brcm_pwr_may_wakeup, &pcie->ep_wakeup_capable);
+			if (pcie->ep_wakeup_capable)
+				return;
+		}
+	}
+
+	list_for_each(pos, &pcie->pwr_supplies) {
+		struct brcm_pwr_supply *supply = list_entry(pos, struct brcm_pwr_supply, node);
+
+		if (on && regulator_enable(supply->regulator))
+			pr_debug("Unable to turn on %s supply.\n", supply->name);
+		else if (!on && regulator_disable(supply->regulator))
+			pr_debug("Unable to turn off %s supply.\n",  supply->name);
+	}
+}
+
 static inline int brcm_pcie_get_rc_bar2_size_and_offset(struct brcm_pcie *pcie,
 							u64 *rc_bar2_size,
 							u64 *rc_bar2_offset)
@@ -833,6 +894,8 @@ static int brcm_pcie_setup(struct brcm_pcie *pcie)
 	tmp |= PCIE_MISC_HARD_PCIE_HARD_DEBUG_CLKREQ_DEBUG_ENABLE_MASK;
 	writel(tmp, base + PCIE_MISC_HARD_PCIE_HARD_DEBUG);
 
+	pcie->bridge_setup_done = true;
+
 	return 0;
 }
 
@@ -892,6 +955,7 @@ static void __brcm_pcie_remove(struct brcm_pcie *pcie)
 	brcm_pcie_turn_off(pcie);
 	clk_disable_unprepare(pcie->clk);
 	clk_put(pcie->clk);
+	brcm_pwr_set_regulators(pcie, false);
 }
 
 static int brcm_pcie_remove(struct platform_device *pdev)
@@ -913,6 +977,10 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	struct pci_bus *child;
 	struct resource *res;
 	int ret;
+	int supplies;
+	struct brcm_pwr_supply *supply;
+	const char *name;
+	int i;
 
 	bridge = devm_pci_alloc_host_bridge(&pdev->dev, sizeof(*pcie));
 	if (!bridge)
@@ -946,6 +1014,31 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "could not enable clock\n");
 		return ret;
 	}
+
+	INIT_LIST_HEAD(&pcie->pwr_supplies);
+
+	supplies = of_property_count_strings(np, "supply-names");
+	if (supplies <= 0)
+		supplies = 0;
+
+	for (i = 0; i < supplies; i++) {
+		if (of_property_read_string_index(np, "supply-names", i, &name))
+			continue;
+
+		supply = devm_kzalloc(&pdev->dev, sizeof(*supply), GFP_KERNEL);
+		if (!supply)
+			goto fail;
+
+		strscpy(supply->name, name, sizeof(supply->name));
+
+		supply->regulator = devm_regulator_get_optional(&pdev->dev, name);
+		if (IS_ERR(supply->regulator))
+			continue;
+
+		list_add_tail(&supply->node, &pcie->pwr_supplies);
+	}
+
+	brcm_pwr_set_regulators(pcie, true);
 
 	ret = brcm_pcie_setup(pcie);
 	if (ret)
