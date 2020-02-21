@@ -64,6 +64,9 @@ properties:
 
   aspm-no-l0s: true
 
+  supply-names:
+    description: List of regulator supplies to use for PCIe
+
 required:
   - reg
   - dma-ranges
