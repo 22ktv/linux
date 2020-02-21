@@ -56,6 +56,9 @@ properties:
     description: Indicates usage of spread-spectrum clocking.
     type: boolean
 
+  supply-names:
+    description: List of regulator supplies to use for PCIe
+
 required:
   - reg
   - dma-ranges
