@@ -23,6 +23,7 @@
 #include <linux/of_platform.h>
 #include <linux/pci.h>
 #include <linux/printk.h>
+#include <linux/regulator/consumer.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -173,7 +174,78 @@ struct brcm_pcie {
 	int			gen;
 	u64			msi_target_addr;
 	struct brcm_msi		*msi;
+#ifdef CONFIG_REGULATOR
+	int			num_regs;
+	struct regulator	**regs;
+#endif
 };
+
+#ifdef CONFIG_REGULATOR
+static void brcm_pcie_regulator_enable(struct brcm_pcie *pcie)
+{
+	int i, ret;
+
+	for (i = 0; i < pcie->num_regs; i++) {
+		if (!pcie->regs[i])
+			continue;
+
+		ret = regulator_enable(pcie->regs[i]);
+		if (ret)
+			dev_err(pcie->dev, "Failed to enable regulator\n");
+	}
+}
+
+static void brcm_pcie_regulator_disable(struct brcm_pcie *pcie)
+{
+	int i, ret;
+
+	for (i = 0; i < pcie->num_regs; i++) {
+		if (!pcie->regs[i])
+			continue;
+
+		ret = regulator_disable(pcie->regs[i]);
+		if (ret)
+			dev_err(pcie->dev, "Failed to disable regulator\n");
+	}
+}
+
+static void brcm_pcie_regulator_init(struct brcm_pcie *pcie)
+{
+	struct device_node *np = pcie->dev->of_node;
+	struct device *dev = pcie->dev;
+	const char *name;
+	struct regulator *reg;
+	int i;
+
+	pcie->num_regs = of_property_count_strings(np, "supply-names");
+	if (pcie->num_regs <= 0) {
+		pcie->num_regs = 0;
+		return;
+	}
+
+	pcie->regs = devm_kcalloc(dev, pcie->num_regs, sizeof(pcie->regs[0]),
+				  GFP_KERNEL);
+	if (!pcie->regs) {
+		pcie->num_regs = 0;
+		return;
+	}
+
+	for (i = 0; i < pcie->num_regs; i++) {
+		if (of_property_read_string_index(np, "supply-names", i, &name))
+			continue;
+
+		reg = devm_regulator_get_optional(dev, name);
+		if (IS_ERR(reg))
+			continue;
+
+		pcie->regs[i] = reg;
+	}
+}
+#else
+static inline void brcm_pcie_regulator_enable(struct brcm_pcie *pcie) { }
+static inline void brcm_pcie_regulator_disable(struct brcm_pcie *pcie) { }
+static inline void brcm_pcie_regulator_init(struct brcm_pcie *pcie) { }
+#endif
 
 /*
  * This is to convert the size of the inbound "BAR" region to the
@@ -898,8 +970,8 @@ static void __brcm_pcie_remove(struct brcm_pcie *pcie)
 {
 	brcm_msi_remove(pcie);
 	brcm_pcie_turn_off(pcie);
+	brcm_pcie_regulator_disable(pcie);
 	clk_disable_unprepare(pcie->clk);
-	clk_put(pcie->clk);
 }
 
 static int brcm_pcie_remove(struct platform_device *pdev)
@@ -955,6 +1027,9 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	brcm_pcie_regulator_init(pcie);
+	brcm_pcie_regulator_enable(pcie);
+
 	ret = brcm_pcie_setup(pcie);
 	if (ret)
 		goto fail;
@@ -996,6 +1071,7 @@ fail:
 
 static const struct of_device_id brcm_pcie_match[] = {
 	{ .compatible = "brcm,bcm2711-pcie" },
+	{ .compatible = "brcm,bcm7445-pcie" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, brcm_pcie_match);
