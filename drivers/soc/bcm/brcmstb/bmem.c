@@ -20,6 +20,62 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/of_fdt.h>
+#include <linux/libfdt.h>
+
+#ifdef CONFIG_BRCMSTB_BMEM_DT_FIXUP
+int __init brcmstb_bmem_dt_fixup(void)
+{
+	static char fdt[64 * 1024];
+	u64 regs[2];
+	int off;
+	int ret;
+	char new_name[20];
+	const char *p;
+	int current_len;
+
+	ret = fdt_open_into(initial_boot_params, fdt, sizeof(fdt));
+	if (ret < 0)
+		return ret;
+
+	off = fdt_path_offset(fdt, "/reserved-memory/bmem");
+	if (off < 0)
+		return off;
+
+	regs[0] = cpu_to_fdt64(CONFIG_BRCMSTB_BMEM_DT_FIXUP_MAP_ADDR);
+	regs[1] = cpu_to_fdt64(CONFIG_BRCMSTB_BMEM_DT_FIXUP_MAP_SIZE);
+	fdt_setprop(fdt, off, "reg", regs, sizeof(regs));
+
+	snprintf(new_name, sizeof(new_name), "bmem@%x",
+		 CONFIG_BRCMSTB_BMEM_DT_FIXUP_MAP_ADDR);
+	p = fdt_get_name(fdt, off, &current_len);
+	if (p && current_len == strlen(new_name))
+		fdt_set_name(fdt, off, new_name);
+
+	off = fdt_path_offset(fdt, "/reserved-memory/bmem-nomap");
+	if (off == -FDT_ERR_NOTFOUND) {
+		off = fdt_path_offset(fdt, "/reserved-memory");
+		if (off < 0)
+			return off;
+		off = fdt_add_subnode(fdt, off, "bmem-nomap");
+	}
+	if (off < 0)
+		return off;
+
+	regs[0] = cpu_to_fdt64(CONFIG_BRCMSTB_BMEM_DT_FIXUP_NOMAP_ADDR);
+	regs[1] = cpu_to_fdt64(CONFIG_BRCMSTB_BMEM_DT_FIXUP_NOMAP_SIZE);
+	fdt_setprop(fdt, off, "reg", regs, sizeof(regs));
+	fdt_setprop(fdt, off, "no-map", NULL, 0);
+
+	fdt_pack(fdt);
+
+	early_init_dt_verify(fdt);
+
+	return 0;
+}
+#else
+int brcmstb_bmem_dt_fixup(void) { return 0; }
+#endif
 
 #define MAX_BMEM_REGIONS	8
 
