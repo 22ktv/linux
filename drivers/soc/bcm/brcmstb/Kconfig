@@ -22,6 +22,26 @@ config BRCMSTB_BMEM
 
 	  If you are planning to use Broadcom middleware, choose Y here.
 
+config BRCMSTB_BMEM_DT_FIXUP
+	bool "Enable BMEM devicetree fixup"
+	depends on ARM && ARCH_BRCMSTB
+
+config BRCMSTB_BMEM_DT_FIXUP_MAP_ADDR
+	hex 'Map address' if BRCMSTB_BMEM_DT_FIXUP
+	default 0x4c000000
+
+config BRCMSTB_BMEM_DT_FIXUP_MAP_SIZE
+	hex 'Map size' if BRCMSTB_BMEM_DT_FIXUP
+	default 0x18000000
+
+config BRCMSTB_BMEM_DT_FIXUP_NOMAP_ADDR
+	hex 'No-map address' if BRCMSTB_BMEM_DT_FIXUP
+	default 0x64000000
+
+config BRCMSTB_BMEM_DT_FIXUP_NOMAP_SIZE
+	hex 'No-map size' if BRCMSTB_BMEM_DT_FIXUP
+	default 0x1c000000
+
 config BRCMSTB_SRPD
 	tristate "Support enabling DDR self-refresh modes"
 	help
