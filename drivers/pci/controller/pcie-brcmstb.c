@@ -23,6 +23,7 @@
 #include <linux/of_platform.h>
 #include <linux/pci.h>
 #include <linux/printk.h>
+#include <linux/regulator/consumer.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -173,6 +174,8 @@ struct brcm_pcie {
 	int			gen;
 	u64			msi_target_addr;
 	struct brcm_msi		*msi;
+	struct regulator_bulk_data *vreg_bulk;
+	int			num_vregs;
 };
 
 /*
@@ -898,8 +901,8 @@ static void __brcm_pcie_remove(struct brcm_pcie *pcie)
 {
 	brcm_msi_remove(pcie);
 	brcm_pcie_turn_off(pcie);
+	regulator_bulk_disable(pcie->num_vregs, pcie->vreg_bulk);
 	clk_disable_unprepare(pcie->clk);
-	clk_put(pcie->clk);
 }
 
 static int brcm_pcie_remove(struct platform_device *pdev)
@@ -920,6 +923,8 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	struct brcm_pcie *pcie;
 	struct pci_bus *child;
 	struct resource *res;
+	struct regulator_bulk_data *bulk;
+	int i;
 	int ret;
 
 	bridge = devm_pci_alloc_host_bridge(&pdev->dev, sizeof(*pcie));
@@ -952,6 +957,36 @@ static int brcm_pcie_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(pcie->clk);
 	if (ret) {
 		dev_err(&pdev->dev, "could not enable clock\n");
+		return ret;
+	}
+
+	ret = of_property_count_strings(np, "supply-names");
+	pcie->num_vregs = (ret < 0) ? 0 : ret;
+
+	if (pcie->num_vregs) {
+		bulk = devm_kcalloc(pcie->dev, pcie->num_vregs, sizeof(*bulk),
+				    GFP_KERNEL);
+		if (!bulk) {
+			clk_disable_unprepare(pcie->clk);
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < pcie->num_vregs; i++)
+			of_property_read_string_index(np, "supply-names", i,
+						      &bulk[i].supply);
+
+		ret = devm_regulator_bulk_get(pcie->dev, pcie->num_vregs, bulk);
+		if (ret < 0) {
+			clk_disable_unprepare(pcie->clk);
+			return ret;
+		}
+
+		pcie->vreg_bulk = bulk;
+	}
+
+	ret = regulator_bulk_enable(pcie->num_vregs, pcie->vreg_bulk);
+	if (ret) {
+		clk_disable_unprepare(pcie->clk);
 		return ret;
 	}
 
@@ -996,6 +1031,7 @@ fail:
 
 static const struct of_device_id brcm_pcie_match[] = {
 	{ .compatible = "brcm,bcm2711-pcie" },
+	{ .compatible = "brcm,bcm7445-pcie" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, brcm_pcie_match);
