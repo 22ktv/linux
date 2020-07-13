@@ -67,6 +67,7 @@
  */
 extern void flush_cache_all(void);
 extern void v8_flush_cache_all(void);
+#define flush_cache_all flush_cache_all
 extern void __flush_icache_range(unsigned long start, unsigned long end);
 extern int  invalidate_icache_range(unsigned long start, unsigned long end);
 extern void __flush_dcache_area(void *addr, size_t len);
