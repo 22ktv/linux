@@ -27,7 +27,7 @@
  * x0: AON_CTRL base address
  * x1: DDRY PHY PLL status register address
  */
-ENTRY(brcmstb_pm_do_s2)
+SYM_CODE_START(brcmstb_pm_do_s2)
 	/* Save registers we are using */
 	stp	x2, x3, [sp, #-16]
 
@@ -70,10 +70,10 @@ ENTRY(brcmstb_pm_do_s2)
 	mov	x0, xzr
 	ret
 
-	ENDPROC(brcmstb_pm_do_s2)
+SYM_CODE_END(brcmstb_pm_do_s2)
 
 	/* Place literal pool here */
 	.ltorg
 
-ENTRY(brcmstb_pm_do_s2_sz)
+SYM_CODE_START(brcmstb_pm_do_s2_sz)
 	.word   . - brcmstb_pm_do_s2

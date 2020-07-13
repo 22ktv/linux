@@ -68,7 +68,7 @@ finished:
 	dsb	sy
 	isb
 	ret
-ENDPROC(__flush_dcache_all)
+SYM_CODE_END(__flush_dcache_all)
 
 /*
  *	v8_flush_cache_all()
@@ -79,13 +79,13 @@ ENDPROC(__flush_dcache_all)
  *	instruction cache can still be invalidated back to the point of
  *	unification in a single instruction.
  */
-ENTRY(v8_flush_cache_all)
+SYM_CODE_START(v8_flush_cache_all)
 	mov	x12, lr
 	bl	__flush_dcache_all
 	mov	x0, #0
 	ic	ialluis				// I+BTB cache invalidate
 	ret	x12
-ENDPROC(v8_flush_cache_all)
+SYM_CODE_END(v8_flush_cache_all)
 
 /*
  *	flush_icache_range(start,end)
