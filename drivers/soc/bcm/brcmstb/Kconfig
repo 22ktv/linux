@@ -46,6 +46,14 @@ config BRCMSTB_BMEM_DT_FIXUP_NOMAP_SIZE
 	depends on BRCMSTB_BMEM_DT_FIXUP
 	default 0x1c000000
 
+config BRCMSTB_DECODER
+	tristate "Support Broadcom video decoder driver"
+	depends on VIDEO_DEV && VIDEO_V4L2
+	select VIDEOBUF2_VMALLOC
+	select V4L2_MEM2MEM_DEV
+	help
+	 Support for the video decoder found in BRCMSTB.
+
 config BRCMSTB_SRPD
 	tristate "Support enabling DDR self-refresh modes"
 	help
