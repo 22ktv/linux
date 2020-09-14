@@ -45,7 +45,15 @@ static const char *const brcmstb_match[] __initconst = {
 	NULL
 };
 
+extern int brcmstb_bmem_dt_fixup(void);
+
+static void __init brcmstb_dt_fixup(void)
+{
+	brcmstb_bmem_dt_fixup();
+}
+
 DT_MACHINE_START(BRCMSTB, "Broadcom STB (Flattened Device Tree)")
 	.dt_compat	= brcmstb_match,
 	.init_irq	= brcmstb_init_irq,
+	.dt_fixup	= brcmstb_dt_fixup,
 MACHINE_END
