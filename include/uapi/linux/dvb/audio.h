@@ -96,6 +96,7 @@ typedef struct audio_status {
 #define AUDIO_SET_ID               _IO('o', 13)
 #define AUDIO_SET_MIXER            _IOW('o', 14, audio_mixer_t)
 #define AUDIO_SET_STREAMTYPE       _IO('o', 15)
+#define AUDIO_GET_PTS              _IOR('o', 19, __u64)
 #define AUDIO_BILINGUAL_CHANNEL_SELECT _IO('o', 20)
 
 #endif /* _DVBAUDIO_H_ */
