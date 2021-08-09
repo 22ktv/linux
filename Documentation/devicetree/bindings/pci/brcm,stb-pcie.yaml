@@ -75,6 +75,9 @@ properties:
       minItems: 1
       maxItems: 3
 
+  supply-names:
+    description: List of regulator supplies to use for PCIe
+
 required:
   - reg
   - ranges
