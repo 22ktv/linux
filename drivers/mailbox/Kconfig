@@ -273,4 +273,16 @@ config QCOM_IPCC
 	  acts as an interrupt controller for receiving interrupts from clients.
 	  Say Y here if you want to build this driver.
 
+config BRCMSTB_MBOX
+	tristate "Broadcom STB Mailbox"
+	depends on ARM64 || ARM
+	depends on ARM_SCMI_PROTOCOL && ARCH_BRCMSTB
+	default ARM_SCMI_PROTOCOL && ARCH_BRCMSTB
+	help
+	  Mailbox implementation of the Broadcom STB for the sole purposes
+	  of SCMI communication.  This is used by the SCMI drivers to
+	  communicate with FW that runs in EL3.  This mailbox only implements
+	  the agent-to-platform channgel of SCMI but may be augmented in
+	  the future to add the platform-to-agent channel.
+
 endif
