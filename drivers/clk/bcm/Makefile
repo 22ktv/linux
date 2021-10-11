@@ -16,3 +16,4 @@ obj-$(CONFIG_CLK_BCM_HR2)	+= clk-hr2.o
 obj-$(CONFIG_CLK_BCM_NSP)	+= clk-nsp.o
 obj-$(CONFIG_CLK_BCM_NS2)	+= clk-ns2.o
 obj-$(CONFIG_CLK_BCM_SR)	+= clk-sr.o
+obj-$(CONFIG_ARCH_BRCMSTB)	+= clk-brcmstb.o
